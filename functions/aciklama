@@ -1,0 +1,13 @@
+
+
+Bu dizin firebase cload function da çalışacak fonksiyonları içerir. 
+fonksiyonlar index.js içinde 
+fonksiyonları deploy etmek için 
+
+    1. login olmak gerekiyor terminalde
+           firebase login 
+
+    2. deploy için 
+           firebase deploy --only functions 
+
+           

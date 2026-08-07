@@ -1,0 +1,803 @@
+{
+  "created_at": "2026-07-08 15:23:53",
+  "app_version": "1.0.1",
+  "hardware_devices": [
+    {
+      "device_id": 1,
+      "device_model": "main_controller",
+      "device_name": "Merkezi Kontrolör",
+      "functions": [
+        {
+          "f_id": 1,
+          "f_type": "ROLE",
+          "hw_pin": 1,
+          "is_assigned": true
+        },
+        {
+          "f_id": 2,
+          "f_type": "ROLE",
+          "hw_pin": 2,
+          "is_assigned": true
+        },
+        {
+          "f_id": 3,
+          "f_type": "ROLE",
+          "hw_pin": 3,
+          "is_assigned": true
+        },
+        {
+          "f_id": 4,
+          "f_type": "ROLE",
+          "hw_pin": 4,
+          "is_assigned": true
+        }
+      ],
+      "is_addressed": false
+    },
+    {
+      "device_id": 2,
+      "device_model": "5li_role",
+      "device_name": "Role 1",
+      "functions": [
+        {
+          "f_id": 5,
+          "f_type": "ROLE",
+          "hw_pin": 1,
+          "is_assigned": true
+        },
+        {
+          "f_id": 6,
+          "f_type": "ROLE",
+          "hw_pin": 2,
+          "is_assigned": true
+        },
+        {
+          "f_id": 7,
+          "f_type": "ROLE",
+          "hw_pin": 3,
+          "is_assigned": true
+        },
+        {
+          "f_id": 8,
+          "f_type": "ROLE",
+          "hw_pin": 4,
+          "is_assigned": true
+        },
+        {
+          "f_id": 9,
+          "f_type": "ROLE",
+          "hw_pin": 5,
+          "is_assigned": true
+        },
+        {
+          "f_id": 150,
+          "f_type": "ANAHTAR",
+          "hw_pin": 6,
+          "is_assigned": true
+        },
+        {
+          "f_id": 151,
+          "f_type": "ANAHTAR",
+          "hw_pin": 7,
+          "is_assigned": true
+        },
+        {
+          "f_id": 152,
+          "f_type": "ANAHTAR",
+          "hw_pin": 8,
+          "is_assigned": false
+        },
+        {
+          "f_id": 153,
+          "f_type": "ANAHTAR",
+          "hw_pin": 9,
+          "is_assigned": false
+        },
+        {
+          "f_id": 154,
+          "f_type": "ANAHTAR",
+          "hw_pin": 10,
+          "is_assigned": false
+        }
+      ],
+      "is_addressed": true
+    },
+    {
+      "device_id": 3,
+      "device_model": "5li_role",
+      "device_name": "Role 2",
+      "functions": [
+        {
+          "f_id": 10,
+          "f_type": "ROLE",
+          "hw_pin": 1,
+          "is_assigned": true
+        },
+        {
+          "f_id": 11,
+          "f_type": "ROLE",
+          "hw_pin": 2,
+          "is_assigned": true
+        },
+        {
+          "f_id": 12,
+          "f_type": "ROLE",
+          "hw_pin": 3,
+          "is_assigned": true
+        },
+        {
+          "f_id": 13,
+          "f_type": "ROLE",
+          "hw_pin": 4,
+          "is_assigned": true
+        },
+        {
+          "f_id": 14,
+          "f_type": "ROLE",
+          "hw_pin": 5,
+          "is_assigned": true
+        },
+        {
+          "f_id": 155,
+          "f_type": "ANAHTAR",
+          "hw_pin": 6,
+          "is_assigned": true
+        },
+        {
+          "f_id": 156,
+          "f_type": "ANAHTAR",
+          "hw_pin": 7,
+          "is_assigned": true
+        },
+        {
+          "f_id": 157,
+          "f_type": "ANAHTAR",
+          "hw_pin": 8,
+          "is_assigned": true
+        },
+        {
+          "f_id": 158,
+          "f_type": "ANAHTAR",
+          "hw_pin": 9,
+          "is_assigned": true
+        },
+        {
+          "f_id": 159,
+          "f_type": "ANAHTAR",
+          "hw_pin": 10,
+          "is_assigned": true
+        }
+      ],
+      "is_addressed": true
+    },
+    {
+      "device_id": 4,
+      "device_model": "5li_role",
+      "device_name": "Role 3",
+      "functions": [
+        {
+          "f_id": 15,
+          "f_type": "ROLE",
+          "hw_pin": 1,
+          "is_assigned": true
+        },
+        {
+          "f_id": 16,
+          "f_type": "ROLE",
+          "hw_pin": 2,
+          "is_assigned": true
+        },
+        {
+          "f_id": 17,
+          "f_type": "ROLE",
+          "hw_pin": 3,
+          "is_assigned": true
+        },
+        {
+          "f_id": 18,
+          "f_type": "ROLE",
+          "hw_pin": 4,
+          "is_assigned": true
+        },
+        {
+          "f_id": 19,
+          "f_type": "ROLE",
+          "hw_pin": 5,
+          "is_assigned": true
+        },
+        {
+          "f_id": 160,
+          "f_type": "ANAHTAR",
+          "hw_pin": 6,
+          "is_assigned": false
+        },
+        {
+          "f_id": 161,
+          "f_type": "ANAHTAR",
+          "hw_pin": 7,
+          "is_assigned": false
+        },
+        {
+          "f_id": 162,
+          "f_type": "ANAHTAR",
+          "hw_pin": 8,
+          "is_assigned": false
+        },
+        {
+          "f_id": 163,
+          "f_type": "ANAHTAR",
+          "hw_pin": 9,
+          "is_assigned": false
+        },
+        {
+          "f_id": 164,
+          "f_type": "ANAHTAR",
+          "hw_pin": 10,
+          "is_assigned": false
+        }
+      ],
+      "is_addressed": true
+    },
+    {
+      "device_id": 5,
+      "device_model": "10lu_röle",
+      "device_name": "Role 4",
+      "functions": [
+        {
+          "f_id": 20,
+          "f_type": "ROLE",
+          "hw_pin": 1,
+          "is_assigned": false
+        },
+        {
+          "f_id": 21,
+          "f_type": "ROLE",
+          "hw_pin": 2,
+          "is_assigned": false
+        },
+        {
+          "f_id": 22,
+          "f_type": "ROLE",
+          "hw_pin": 3,
+          "is_assigned": false
+        },
+        {
+          "f_id": 23,
+          "f_type": "ROLE",
+          "hw_pin": 4,
+          "is_assigned": false
+        },
+        {
+          "f_id": 24,
+          "f_type": "ROLE",
+          "hw_pin": 5,
+          "is_assigned": false
+        },
+        {
+          "f_id": 25,
+          "f_type": "ROLE",
+          "hw_pin": 6,
+          "is_assigned": false
+        },
+        {
+          "f_id": 26,
+          "f_type": "ROLE",
+          "hw_pin": 7,
+          "is_assigned": false
+        },
+        {
+          "f_id": 27,
+          "f_type": "ROLE",
+          "hw_pin": 8,
+          "is_assigned": false
+        },
+        {
+          "f_id": 28,
+          "f_type": "ROLE",
+          "hw_pin": 9,
+          "is_assigned": false
+        },
+        {
+          "f_id": 29,
+          "f_type": "ROLE",
+          "hw_pin": 10,
+          "is_assigned": false
+        },
+        {
+          "f_id": 165,
+          "f_type": "ANAHTAR",
+          "hw_pin": 11,
+          "is_assigned": false
+        },
+        {
+          "f_id": 166,
+          "f_type": "ANAHTAR",
+          "hw_pin": 12,
+          "is_assigned": false
+        },
+        {
+          "f_id": 167,
+          "f_type": "ANAHTAR",
+          "hw_pin": 13,
+          "is_assigned": false
+        },
+        {
+          "f_id": 168,
+          "f_type": "ANAHTAR",
+          "hw_pin": 14,
+          "is_assigned": false
+        },
+        {
+          "f_id": 169,
+          "f_type": "ANAHTAR",
+          "hw_pin": 15,
+          "is_assigned": false
+        }
+      ],
+      "is_addressed": false
+    },
+    {
+      "device_id": 6,
+      "device_model": "2li_anahtar",
+      "device_name": "Anahtar",
+      "functions": [
+        {
+          "f_id": 170,
+          "f_type": "ANAHTAR",
+          "hw_pin": 1,
+          "is_assigned": false
+        },
+        {
+          "f_id": 171,
+          "f_type": "ANAHTAR",
+          "hw_pin": 2,
+          "is_assigned": false
+        }
+      ],
+      "is_addressed": false
+    }
+  ],
+  "actions": [
+    {
+      "action_id": 1,
+      "channel": 10,
+      "action_type": "relaylamp",
+      "action_name": "Mutfak Lambası",
+      "action_room": 3,
+      "mapped_outputs": [
+        {
+          "type": "ROLE",
+          "id": 5,
+          "desc": "output_1"
+        }
+      ],
+      "mapped_inputs": [],
+      "event_links": [
+        {
+          "type": "SUNRISE_EVENT",
+          "event_state": "on",
+          "action_state": "on"
+        }
+      ],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
+    },
+    {
+      "action_id": 2,
+      "channel": 10,
+      "action_type": "relaylamp",
+      "action_name": "Koridor Lambası",
+      "action_room": 2,
+      "mapped_outputs": [
+        {
+          "type": "ROLE",
+          "id": 10,
+          "desc": "output_1"
+        }
+      ],
+      "mapped_inputs": [],
+      "event_links": [],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
+    },
+    {
+      "action_id": 3,
+      "channel": 10,
+      "action_type": "relaylamp",
+      "action_name": "Salon Lambası 1",
+      "action_room": 0,
+      "time": 120,
+      "mapped_outputs": [
+        {
+          "type": "ROLE",
+          "id": 7,
+          "desc": "output_1"
+        }
+      ],
+      "mapped_inputs": [],
+      "event_links": [
+        {
+          "type": "MOVEMENT_EVENT",
+          "event_state": "on",
+          "action_state": "on"
+        }
+      ],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
+    },
+    {
+      "action_id": 4,
+      "channel": 10,
+      "action_type": "relaylamp",
+      "action_name": "Salon Lambası 2",
+      "action_room": 0,
+      "mapped_outputs": [
+        {
+          "type": "ROLE",
+          "id": 6,
+          "desc": "output_1"
+        }
+      ],
+      "mapped_inputs": [],
+      "event_links": [],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
+    },
+    {
+      "action_id": 5,
+      "channel": 10,
+      "action_type": "water",
+      "action_name": "Su",
+      "action_room": 6,
+      "mapped_outputs": [
+        {
+          "type": "ROLE",
+          "id": 2,
+          "desc": "output_1"
+        }
+      ],
+      "mapped_inputs": [],
+      "event_links": [],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
+    },
+    {
+      "action_id": 6,
+      "channel": 10,
+      "action_type": "gas",
+      "action_name": "Gaz",
+      "action_room": 6,
+      "mapped_outputs": [
+        {
+          "type": "ROLE",
+          "id": 1,
+          "desc": "output_1"
+        }
+      ],
+      "mapped_inputs": [],
+      "event_links": [
+        {
+          "type": "EMERGENCY_OFF_EVENT",
+          "event_state": "on",
+          "action_state": "off"
+        }
+      ],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
+    },
+    {
+      "action_id": 7,
+      "channel": 10,
+      "action_type": "energy",
+      "action_name": "Kontaktör",
+      "action_room": 6,
+      "mapped_outputs": [
+        {
+          "type": "ROLE",
+          "id": 3,
+          "desc": "output_1"
+        }
+      ],
+      "mapped_inputs": [],
+      "event_links": [],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
+    },
+    {
+      "action_id": 8,
+      "channel": 10,
+      "action_type": "relaylamp",
+      "action_name": "Tuvalet lambası",
+      "action_room": 7,
+      "time": 60,
+      "mapped_outputs": [
+        {
+          "type": "ROLE",
+          "id": 11,
+          "desc": "output_1"
+        }
+      ],
+      "mapped_inputs": [
+        {
+          "type": "ANAHTAR",
+          "id": 155,
+          "desc": "switch_1",
+          "active": 1
+        }
+      ],
+      "event_links": [
+        {
+          "type": "MOVEMENT_EVENT",
+          "event_state": "on",
+          "action_state": "on"
+        }
+      ],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
+    },
+    {
+      "action_id": 9,
+      "channel": 10,
+      "action_type": "blind",
+      "action_name": "Salon Perdesi",
+      "action_room": 0,
+      "time": 180,
+      "mapped_outputs": [
+        {
+          "type": "ROLE",
+          "id": 12,
+          "desc": "output_1"
+        },
+        {
+          "type": "ROLE",
+          "id": 13,
+          "desc": "output_2"
+        }
+      ],
+      "mapped_inputs": [
+        {
+          "type": "ANAHTAR",
+          "id": 156,
+          "desc": "switch_1",
+          "active": 1
+        },
+        {
+          "type": "ANAHTAR",
+          "id": 157,
+          "desc": "switch_2",
+          "active": 1
+        }
+      ],
+      "event_links": [
+        {
+          "type": "SUNSET_EVENT",
+          "event_state": "on",
+          "action_state": "on"
+        },
+        {
+          "type": "SUNRISE_EVENT",
+          "event_state": "on",
+          "action_state": "on"
+        },
+        {
+          "type": "PERIMETER_BREACH_EVENT",
+          "event_state": "on",
+          "action_state": "on"
+        }
+      ],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
+    },
+    {
+      "action_id": 10,
+      "channel": 10,
+      "action_type": "blind",
+      "action_name": "Mutfak Perdesi",
+      "action_room": 3,
+      "time": 180,
+      "mapped_outputs": [
+        {
+          "type": "ROLE",
+          "id": 14,
+          "desc": "output_1"
+        },
+        {
+          "type": "ROLE",
+          "id": 15,
+          "desc": "output_2"
+        }
+      ],
+      "mapped_inputs": [
+        {
+          "type": "ANAHTAR",
+          "id": 158,
+          "desc": "switch_1",
+          "active": 1
+        },
+        {
+          "type": "ANAHTAR",
+          "id": 159,
+          "desc": "switch_2",
+          "active": 1
+        }
+      ],
+      "event_links": [
+        {
+          "type": "ALARM_STATE_EVENT",
+          "event_state": "on",
+          "action_state": "on"
+        }
+      ],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
+    },
+    {
+      "action_id": 11,
+      "channel": 10,
+      "action_type": "elevator",
+      "action_name": "Asansör",
+      "action_room": 6,
+      "mapped_outputs": [
+        {
+          "type": "ROLE",
+          "id": 4,
+          "desc": "output_1"
+        }
+      ],
+      "mapped_inputs": [],
+      "event_links": [],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
+    },
+    {
+      "action_id": 12,
+      "channel": 10,
+      "action_type": "socket",
+      "action_name": "Salon Priz",
+      "action_room": 0,
+      "mapped_outputs": [
+        {
+          "type": "ROLE",
+          "id": 19,
+          "desc": "output_1"
+        }
+      ],
+      "mapped_inputs": [],
+      "event_links": [
+        {
+          "type": "ALARM_STATE_EVENT",
+          "event_state": "off",
+          "action_state": "on"
+        }
+      ],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
+    },
+    {
+      "action_id": 13,
+      "channel": 10,
+      "action_type": "movement",
+      "action_name": "Salon Hareket",
+      "action_room": 0,
+      "mapped_outputs": [],
+      "mapped_inputs": [
+        {
+          "type": "ANAHTAR",
+          "id": 150,
+          "desc": "switch_1",
+          "active": 1
+        }
+      ],
+      "event_links": [],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
+    },
+    {
+      "action_id": 14,
+      "channel": 10,
+      "action_type": "movement",
+      "action_name": "Tuvalet Hareket",
+      "action_room": 7,
+      "mapped_outputs": [],
+      "mapped_inputs": [
+        {
+          "type": "ANAHTAR",
+          "id": 151,
+          "desc": "switch_1",
+          "active": 1
+        }
+      ],
+      "event_links": [],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
+    }
+  ],
+  "events": [
+    {
+      "type": "SUNSET_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "SUNRISE_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "ALARM_STATE_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "RAIN_DETECTED_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "PERIMETER_BREACH_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "WIND_STRENGTH_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "EMERGENCY_OFF_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "DETERENT_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "HEAT_BOOST_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "CLOCK_UPDATE_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "MOVEMENT_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "TEMP_UPDATE_EVENT",
+      "source_device_id": 6,
+      "category": "Genel"
+    }
+  ],
+  "controller_info": {
+    "com": "get_version",
+    "id": 1,
+    "embeded": "3.0.0.3",
+    "kanal": 3,
+    "admin": "default",
+    "mqtt": "broker.emqx.io",
+    "lic": "SMQLC01",
+    "ai": 1,
+    "wifi": 1,
+    "ip": "192.168.1.80"
+  }
+}

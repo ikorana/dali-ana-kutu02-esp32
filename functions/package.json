@@ -1,0 +1,17 @@
+{
+  "name": "functions",
+  "description": "Cloud Functions for Firebase",
+  "private": true,
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-functions": "^7.3.0",
+    "firebase-admin": "^13.10.0",
+    "genkit": "^1.40.1",
+    "@genkit-ai/googleai": "^1.28.0",
+    "zod": "^3.23.8",
+    "jsonwebtoken": "^9.0.3"
+  }
+}

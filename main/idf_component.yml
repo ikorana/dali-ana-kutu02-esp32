@@ -1,0 +1,27 @@
+## IDF Component Manager Manifest File
+dependencies:
+  ## Required IDF version
+  idf:
+    version: '>=4.1.0'
+  tftp_server:
+    path: /Users/smartq//global/tftp_server
+  tftp_ota_server:
+    path: /Users/smartq/global/tftp_ota_server
+  tftp_disk_server:
+    path: /Users/smartq/global/tftp_disk_server
+  http:
+    path: /Users/smartq/global/http
+  home_i2c:
+    path: /Users/smartq/global/home_i2c
+  udp_server_gem:
+    path: /Users/smartq/global/udp_server_gem
+  ESP32Time:
+    path: /Users/smartq/global/ESP32Time
+  iptool:
+    path: /Users/smartq/global/iptool
+  joltwallet/littlefs: ==1.21.1
+  espressif/mqtt: '*'
+  espressif/cjson: ^1.7.19~2
+  espressif/w5500: ^1.0.1
+  bblanchon/arduinojson: ^6.21.3
+  espressif/mdns: '*'

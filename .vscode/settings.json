@@ -1,0 +1,20 @@
+{
+  "C_Cpp.intelliSenseEngine": "default",
+  "idf.extensionActivationMode": "always",
+  "idf.openOcdConfigs": [
+    "board/esp32-wrover-kit-3.3v.cfg"
+  ],
+  "idf.port": "/dev/tty.usbserial-1110",
+  "idf.currentSetup": "/Users/smartq/esp/v6.0.2/esp-idf",
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32"
+  },
+  "clangd.path": "/Users/smartq/.espressif/tools/esp-clang/esp-20.1.1_20250829/esp-clang/bin/clangd",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=/Users/smartq/STM32_PRJ/DALI_SON_DURUM/ANA_KUTU02/ESP32/anakutu/build"
+  ],
+  "C_Cpp.errorSquiggles": "disabled",
+  "idf.flashType": "UART"
+}
