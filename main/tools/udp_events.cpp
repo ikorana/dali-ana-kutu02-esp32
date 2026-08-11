@@ -536,7 +536,6 @@ void udp_worker_task(void *pvParameters) {
                         cJSON_AddNumberToObject(off_pl, "kanal", 9);
                         command_off(off_pl, n_pck, msg->is_mqtt, false);
                         cJSON_Delete(off_pl);
-
                     }
                     disk.write_file(GLOBAL_FILE,&GlobalConfig,sizeof(GlobalConfig),0);
                     cJSON *pay = cJSON_CreateObject();  

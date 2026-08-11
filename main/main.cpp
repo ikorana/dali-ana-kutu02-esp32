@@ -499,7 +499,7 @@ void uartCallback(const uint8_t *data, size_t len)
 
     buf[strcspn((char*)buf, "\r\n")] = '\0';
 
-    //printf("UART GELEN << %s\n",buf);
+    printf("UART GELEN << %s\n",buf);
     
     cJSON *rcv_json = cJSON_Parse((const char *)buf);
     if (rcv_json!=nullptr) {

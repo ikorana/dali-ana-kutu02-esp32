@@ -1226,13 +1226,22 @@ void command_arc(cJSON *payload, pck_t *pck, bool is_mqtt=false, bool say=true)
     bool cm = (kanal>0 && kanal<10);
     if (cm) send_STM(root);
     if (cm || kanal==0) send_wifi(root);
-    if (kanal==10) {
-        //bu cihaz lokaldedir. adr üzerinden cihazı bulup komutu ona gönder 
-        for (Base_Device* cihaz : cihaz_listesi) 
+    if (kanal==10 || kanal==9) {
+        //bu cihaz lokaldedir. adr üzerinden cihazı bulup komutu ona gönder
+        //kanal==9: STM tarafındaki tüm DALI kanallarını hedefleyen broadcast — yerel
+        //(DALI olmayan) cihazlar bu broadcast'in kapsamında olmadığından burada da uygulanır.
+        //adr==0xff (broadcast) durumunda sadece LAMBA tipindeki (0x76) cihazlar hedeflenir;
+        //gaz/su vanası, kontaktör, asansör, perde, priz gibi cihazlar toplu komutla
+        //etkilenmemeli. Tekil hedefli çağrılarda (adr==device_id) tip filtresi uygulanmaz.
+        for (Base_Device* cihaz : cihaz_listesi)
         {
-            if (cihaz->device_id==adr || adr==0xff)
+            bool hedef = (cihaz->device_id==adr) ||
+                         (adr==0xff && cihaz->device_exttype==0x76);
+            bool syy = say;
+            if (adr==255 && cihaz->device_exttype==0x76) syy = false; //broadcast ile tüm lambaları kapatırken sayma yapılmaz             
+            if (hedef)
               {
-                cihaz->set_power(pow, say);
+                cihaz->set_power(pow, syy);
               }
         }
     }
@@ -1262,11 +1271,19 @@ void command_off(cJSON *payload, pck_t *pck, bool is_mqtt= false, bool say=true)
         //bu cihaz lokaldedir. adr üzerinden cihazı bulup komutu ona gönder
         //kanal==9: STM tarafındaki tüm DALI kanallarını kapatan broadcast — yerel
         //(DALI olmayan) cihazlar bu broadcast'in kapsamında olmadığından burada da kapatılır.
+        //adr==0xff (broadcast) durumunda sadece LAMBA tipindeki (0x76) cihazlar hedeflenir;
+        //gaz/su vanası, kontaktör, asansör, perde, priz gibi cihazlar "tüm lambaları kapat"
+        //ile kapanmamalı. Tekil hedefli çağrılarda (adr==device_id) tip filtresi uygulanmaz.
         for (Base_Device* cihaz : cihaz_listesi)
         {
-            if (cihaz->device_id==adr || adr==0xff)
+            bool hedef = (cihaz->device_id==adr) ||
+                         (adr==0xff && cihaz->device_exttype==0x76);
+            bool syy = say;
+            if (adr==255 && cihaz->device_exttype==0x76) syy = false; //broadcast ile tüm lambaları kapatırken sayma yapılmaz   
+
+            if (hedef)
               {
-                cihaz->off(say);
+                cihaz->off(syy);
               }
         }
     }
