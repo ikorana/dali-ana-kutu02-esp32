@@ -240,6 +240,7 @@ typedef union {
 } EventDataUnion_t;
 
 typedef struct {
+   uint8_t channel;
    uint8_t adr;
    uint8_t ins;
    uint8_t ev;
@@ -292,67 +293,17 @@ void lamp_action(uint8_t adr, uint8_t grp, uint8_t cmd, uint8_t chn)
         cJSON_Delete(root);
 }
 
-void event_process_task(void *pvParameters) 
+// TODO (adım 6): Bu fonksiyon, gear tablolarını (gear01-04 + gear10) tarayıp
+// trigger_t[] içinde (switch_channel==param->channel && switch_addr==param->adr &&
+// switch_ins==param->ins) eşleşen her kaydı bulup, o trigger'ın kendi "process"
+// alanına göre lamp_action() çağıracak şekilde yeniden yazılacak — DALI anahtarları
+// ve yerel "tus" tuşları için ORTAK tetikleme mekanizması burada birleşecek.
+// Şimdilik sadece derlensin diye no-op bırakıldı.
+void event_process_task(void *pvParameters)
 {
    event_proc_par_t *param = (event_proc_par_t *)pvParameters;
-   printf("TUS basıldı %d %d %d\n", param->adr,param->ins,param->ev);
-   static instance_t ins = {};
-   instance.get_instance(param->adr,param->ins, &ins);
-
-    uint8_t aadr = ins.com_addr;
-    uint8_t agrp = 0;
-    if (ins.com==CM_GROUP) agrp=1; 
-    
-    if (ins.com==CM_LAMP || ins.com==CM_GROUP)
-    {
-        if (ins.process==PR_TOGGLE || ins.process==PR_TOGMAX) {
-            if (ins.status==0) {
-                uint8_t cm = 0x0A;
-                if (ins.process==PR_TOGMAX) cm=0x05;
-                lamp_action(aadr,agrp,cm,ins.channel);
-                ins.status=1;
-                printf("TOGGLE ON\n");
-            } else {
-                lamp_action(aadr,agrp,0x00,ins.channel);
-                ins.status=0;
-                printf("TOGGLE OFF\n");
-            }                       
-        } 
-        if (ins.process==PR_ON) {
-            lamp_action(aadr,agrp,0x0A,ins.channel);
-            ins.status=1;
-            printf("ON\n");
-        }
-        if (ins.process==PR_OFF) {
-            lamp_action(aadr,agrp,0x00,ins.channel);
-            ins.status=0;
-            printf("OFF\n");
-        }
-        if (ins.process==PR_MAXLEVEL) {
-            lamp_action(aadr,agrp,0x05,ins.channel);
-            ins.status=1;
-            printf("MAX LEVEL\n");
-        }
-        if (ins.process==PR_MINLEVEL) {
-            lamp_action(aadr,agrp,0x06,ins.channel);
-            ins.status=1;
-            printf("MIN LEVEL\n");
-        }
-
-        if (ins.process==PR_UPDIM) {
-            lamp_action(aadr,agrp,0x08,ins.channel);
-            ins.status=1;
-            printf("ON AND UP\n");
-        }
-        if (ins.process==PR_DOWNDIM) {
-            lamp_action(aadr,agrp,0x07,ins.channel);
-            ins.status=1;
-            printf("DOWN AND OFF\n");
-        }
-        
-        instance.set_instance(param->adr,param->ins,&ins);
-    }
-//   printf("INS : %d:%d %d Stat:%d\n",ins.dev_addr,ins.ins_addr, ins.type, ins.status);
+   printf("TUS basıldı Kanal:%d Adr:%d Ins:%d Ev:%d (trigger_t taraması henüz bağlanmadı)\n",
+          param->channel, param->adr, param->ins, param->ev);
    vTaskDelete(NULL);
 }
 
@@ -399,7 +350,7 @@ void process_and_control_task(void *pvParameters)
     
    if (stat==0) {
       cpins.status=0;
-      instance.set_instance(cpins.dev_addr,cpins.ins_addr,&cpins);
+      instance.set_instance(cpins.channel,cpins.dev_addr,cpins.ins_addr,&cpins);
    }
 
     cJSON *root = cJSON_CreateObject();                      
@@ -581,8 +532,11 @@ void uartCallback(const uint8_t *data, size_t len)
             if (ix==1) ev.alan.instance = ev.alan.instance & 0b00011111;
 
             
+            // TODO: STM32 firmware "event" mesajına henüz kanal (chn) bilgisi eklemiyor.
+            // STM güncellenene kadar geçici olarak kanal=2 varsayılıyor.
+            uint8_t event_kanal = 2;
             instance_t ins = {};
-            esp_err_t kk= instance.get_instance(ev.alan.addr>>1,ev.alan.instance, &ins);
+            esp_err_t kk= instance.get_instance(event_kanal, ev.alan.addr>>1,ev.alan.instance, &ins);
             printf("Event Adr:%d Ins:%d Event:%d Tus:%d Type:%d\n",ev.alan.addr>>1,ev.alan.instance,ev.alan.event,ix,ins.type);
 
             //printf("%d:%d %d %s\n",ev.alan.addr>>1,ev.alan.instance,kk,esp_err_to_name(kk));
@@ -608,6 +562,7 @@ void uartCallback(const uint8_t *data, size_t len)
                    }
 
                    static event_proc_par_t param = {};
+                   param.channel = event_kanal;
                    param.adr = ins.dev_addr;
                    param.ins = ins.ins_addr;
                    param.ev = ev.alan.event;
@@ -628,9 +583,9 @@ void uartCallback(const uint8_t *data, size_t len)
                         //Sete bakarak röleyi hareket ettir. 
                         //Broadcast olarak Isı datası gönder
                         if (ev.alan.event<2) return;
-                        ins.temp = ev.alan.event;                        
+                        ins.temp = ev.alan.event;
                         temp_role_degerlendir(&ins);
-                        instance.set_instance(ev.alan.addr>>1,ev.alan.instance,&ins);
+                        instance.set_instance(event_kanal, ev.alan.addr>>1,ev.alan.instance,&ins);
                         
                         cJSON *root = cJSON_CreateObject();                      
                         cJSON_AddStringToObject(root, "com", "push_temp");
