@@ -47,7 +47,7 @@ class Relay : public Base_Device {
             port->pin_on();
         }
         state=0xFE;
-        write_state(state,"açıldı");
+        write_state(state,"açıldı",say);
       }
 
       void off(bool say=true) {
@@ -57,7 +57,7 @@ class Relay : public Base_Device {
             port->pin_off();
         }
         state=0;
-        write_state(state,"kapatıldı");
+        write_state(state,"kapatıldı",say);
         //printf("off\n");
 
       }
@@ -121,12 +121,12 @@ class Relay : public Base_Device {
     private:
        uint8_t init_state=0;
 
-       void write_state(uint8_t pwr, const char *txt=nullptr) {
+       void write_state(uint8_t pwr, const char *txt=nullptr, bool say=true) {
             gear_t gr={};
             gear->read_gear(device_id,&gr);
             gr.spec.status = pwr;
             gear->write_gear(device_id,&gr);
-            if (txt!=nullptr) {
+            if (txt!=nullptr && say) {
                 if (saycallback && init_state==0) {
                   char *mm;
                   asprintf(&mm,"%s %s",gr.name,txt);

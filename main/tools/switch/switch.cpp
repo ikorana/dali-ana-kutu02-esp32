@@ -111,6 +111,7 @@ cJSON *Anahtar::switch_intro(void)
             cJSON_AddItemToObject(Lm, "level", cJSON_CreateNumber(ff.level));
             cJSON_AddItemToObject(Lm, "sens_id", cJSON_CreateNumber(ff.sensor_id));
             cJSON_AddItemToObject(Lm, "sens_ins", cJSON_CreateNumber(ff.sensor_instance));
+            cJSON_AddItemToObject(Lm, "senschn", cJSON_CreateNumber(ff.sensor_channel));
             cJSON_AddItemToObject(Lm, "rel_id", cJSON_CreateNumber(ff.relay_id));
             cJSON_AddItemToObject(Lm, "rel_chn", cJSON_CreateNumber(ff.relay_channel));
             cJSON_AddItemToObject(Lm, "room", cJSON_CreateNumber(ff.room));
@@ -136,6 +137,7 @@ void Anahtar::small_intro(uint8_t room, cJSON *py)
             cJSON_AddItemToObject(Lm, "level", cJSON_CreateNumber(ff.level));
             cJSON_AddItemToObject(Lm, "sens_id", cJSON_CreateNumber(ff.sensor_id));
             cJSON_AddItemToObject(Lm, "sens_ins", cJSON_CreateNumber(ff.sensor_instance));
+            cJSON_AddItemToObject(Lm, "senschn", cJSON_CreateNumber(ff.sensor_channel));
             cJSON_AddItemToObject(Lm, "rel_id", cJSON_CreateNumber(ff.relay_id));
             cJSON_AddItemToObject(Lm, "rel_chn", cJSON_CreateNumber(ff.relay_channel));
             cJSON_AddItemToObject(Lm, "room", cJSON_CreateNumber(ff.room));

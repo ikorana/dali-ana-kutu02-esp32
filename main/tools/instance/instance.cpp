@@ -54,18 +54,25 @@ cJSON *Instance::instance_intro(void)
         instance_t ff={};
         disk->read_file(INSTANCE_FILE,&ff,sizeof(instance_t),i);
         if (ff.dev_addr!=0xFF) {
+            // NOT: Uygulama (InsIntroScn modeli) her kayıtta adr/iadr/chn/type/act/
+            // proc/cm/cmadr/stat/temp/tset/ttype alanlarının hepsinin var olmasını
+            // bekliyor (zorunlu alanlar). Termostat (TEMPERATURE) dışındaki tiplerde
+            // proc/cm/cmadr artık instance_t'de tutulmuyor (trigger_t'ye taşındı,
+            // adım 6'da buraya bağlanacak) — o yüzden şimdilik yer tutucu gönderiliyor.
+            bool isTemp = (ff.type==INSTANCE_TYPE_TEMPERATURE);
             cJSON_AddItemToArray(grp, Lm = cJSON_CreateObject());
             cJSON_AddItemToObject(Lm, "chn", cJSON_CreateNumber(ff.channel));
             cJSON_AddItemToObject(Lm, "adr", cJSON_CreateNumber(ff.dev_addr));
             cJSON_AddItemToObject(Lm, "iadr", cJSON_CreateNumber(ff.ins_addr));
             cJSON_AddItemToObject(Lm, "type", cJSON_CreateNumber(ff.type));
             cJSON_AddItemToObject(Lm, "act", cJSON_CreateNumber(ff.ins_active));
-            if (ff.type==INSTANCE_TYPE_TEMPERATURE) {
-                cJSON_AddItemToObject(Lm, "stat", cJSON_CreateNumber(ff.status));
-                cJSON_AddItemToObject(Lm, "temp", cJSON_CreateNumber(ff.temp));
-                cJSON_AddItemToObject(Lm, "tset", cJSON_CreateNumber(ff.temp_set));
-                cJSON_AddItemToObject(Lm, "ttype", cJSON_CreateNumber(ff.temp_type));
-            }
+            cJSON_AddItemToObject(Lm, "proc", cJSON_CreateNumber(PR_UNKNOWN));
+            cJSON_AddItemToObject(Lm, "cm", cJSON_CreateNumber(CM_UNKNOWN));
+            cJSON_AddItemToObject(Lm, "cmadr", cJSON_CreateNumber(isTemp ? ff.com_addr : 0xff));
+            cJSON_AddItemToObject(Lm, "stat", cJSON_CreateNumber(isTemp ? ff.status : 0));
+            cJSON_AddItemToObject(Lm, "temp", cJSON_CreateNumber(isTemp ? ff.temp : 0));
+            cJSON_AddItemToObject(Lm, "tset", cJSON_CreateNumber(isTemp ? ff.temp_set : 0));
+            cJSON_AddItemToObject(Lm, "ttype", cJSON_CreateNumber(isTemp ? ff.temp_type : 0));
         }
     }
     return grp;

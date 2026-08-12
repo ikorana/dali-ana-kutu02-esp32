@@ -93,7 +93,7 @@ void network_default_config(void)
      ESP_LOGD("DISK","      Write Default Network Variable");
      NetworkConfig.home_default = 1;
      NetworkConfig.wan_type = WAN_WIFI; //WAN_WIFI; //WAN_ETHERNET   
-     NetworkConfig.ipstat = DYNAMIC_IP; //STATIC_IP; //DYNAMIC_IP
+     NetworkConfig.ipstat = STATIC_IP; //STATIC_IP; //DYNAMIC_IP
      
      strcpy((char*)NetworkConfig.ip,"192.168.1.80");
      strcpy((char*)NetworkConfig.netmask,"255.255.255.0");
@@ -101,14 +101,14 @@ void network_default_config(void)
      strcpy((char*)NetworkConfig.dns,"8.8.8.8");
      strcpy((char*)NetworkConfig.backup_dns,"4.4.4.4");
 
-     //strcpy((char*)NetworkConfig.ssid,"Akdogan_2.4G");
-     //strcpy((char*)NetworkConfig.pass,"651434_2.4"); 
+     strcpy((char*)NetworkConfig.ssid,"Akdogan_2.4G");
+     strcpy((char*)NetworkConfig.pass,"651434_2.4"); 
 
     // strcpy((char*)NetworkConfig.ssid,"IMS_YAZILIM");
     // strcpy((char*)NetworkConfig.pass,"mer6514a4c"); 
 
-    strcpy((char*)NetworkConfig.ssid,"SMQ_NETWORK");
-    strcpy((char*)NetworkConfig.pass,"12345678"); 
+    //strcpy((char*)NetworkConfig.ssid,"SMQ_NETWORK");
+    //strcpy((char*)NetworkConfig.pass,"12345678"); 
 
 
      NetworkConfig.channel = 11;    

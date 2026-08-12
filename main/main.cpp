@@ -281,8 +281,20 @@ void base_function_callback(void *fnc, uint8_t id, const char *txt) {
     //printf("Mesaj Geldi %s State:%d ID:%d\n",dev->name,dev->state,id);
 }
 
-void lamp_action(uint8_t adr, uint8_t grp, uint8_t cmd, uint8_t chn)
+void lamp_action(uint8_t adr, uint8_t grp, uint8_t cmd, uint8_t chn, bool say=true)
 {
+        if (chn==10) {
+            // Yerel cihaz — DALI/STM'e hiç gitmez, cihaz_listesi üzerinden
+            // doğrudan (senkron) uygulanır.
+            for (Base_Device* cihaz : cihaz_listesi) {
+                if (cihaz->device_id==adr || adr==0xff) {
+                    if (cmd==0x00) cihaz->off(say);
+                    else cihaz->set_power(254, say); // MAX LEVEL (0x05) ve benzeri "aç" komutları
+                }
+            }
+            return;
+        }
+
         uint32_t cmm = create_command(adr,(grp==0)?false:true,false,cmd);
         cJSON *root = cJSON_CreateObject();
         cJSON_AddStringToObject(root, "com", "send");
@@ -309,48 +321,56 @@ void event_process_task(void *pvParameters)
 
 
 
-void process_and_control_task(void *pvParameters) 
+void process_and_control_task(void *pvParameters)
 {
    instance_t *param = (instance_t *)pvParameters;
    static instance_t cpins = {};
    memcpy(&cpins, param, sizeof(instance_t));
-   bool don = true;
-   uint8_t count=0, stat=1;
 
-   do {
-        count++;
-        if (cpins.status==1) {
-                //En yüksekte AÇ (Max Level)
-                lamp_action(cpins.com_addr,0,0x05,cpins.lamp_channel);
-            } else {
-                //Kapat 
-                lamp_action(cpins.com_addr,0,0x00,cpins.lamp_channel);
-            }
+   if (cpins.lamp_channel==10) {
+       // Yerel hedef: cihaz_listesi çağrısı senkron ve kesin, DALI tarzı
+       // sorgu+retry ile durum doğrulamaya hiç gerek yok. say=false: termostatın
+       // otomatik aç/kapa döngüsü her seferinde sesli anons tetiklemesin.
+       lamp_action(cpins.com_addr, 0, (cpins.status==1) ? 0x05 : 0x00, cpins.lamp_channel, false);
+   } else {
+       bool don = true;
+       uint8_t count=0, stat=1;
 
-        vTaskDelay(500/portTICK_PERIOD_MS);
-        //process gönderildi durum sorgulanacak
-        
-        cJSON *pay = cJSON_CreateObject();  
-        cJSON_AddStringToObject(pay, "com", "query");
-        cJSON_AddNumberToObject(pay, "hexcom", create_command(cpins.com_addr,false,false,QUERY_STATUS));
-        cJSON_AddNumberToObject(pay, "kanal",cpins.lamp_channel);
-        cJSON_AddNumberToObject(pay, "bit",16);
-        send_STM(pay);
-        cJSON_Delete(pay);
+       do {
+            count++;
+            if (cpins.status==1) {
+                    //En yüksekte AÇ (Max Level)
+                    lamp_action(cpins.com_addr,0,0x05,cpins.lamp_channel);
+                } else {
+                    //Kapat
+                    lamp_action(cpins.com_addr,0,0x00,cpins.lamp_channel);
+                }
 
-        //Açma veya kapatma emrinden sonra cihazın statusunda lampon parametresi 1 veya 0 olmalı 
-        searchMessage_t msg = {};
-        xQueueReset(searchQueue);
-        xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(3000));
-        if (count>3) {don=false;stat=0;}
-        //Eger 
-        if (cpins.status==1) {if ((msg.name[0]&0x04)==0x04) don=false;}
-        if (cpins.status==0) {if ((msg.name[0]&0x04)!=0x04) don=false;}
-   } while (don);
-    
-   if (stat==0) {
-      cpins.status=0;
-      instance.set_instance(cpins.channel,cpins.dev_addr,cpins.ins_addr,&cpins);
+            vTaskDelay(500/portTICK_PERIOD_MS);
+            //process gönderildi durum sorgulanacak
+
+            cJSON *pay = cJSON_CreateObject();
+            cJSON_AddStringToObject(pay, "com", "query");
+            cJSON_AddNumberToObject(pay, "hexcom", create_command(cpins.com_addr,false,false,QUERY_STATUS));
+            cJSON_AddNumberToObject(pay, "kanal",cpins.lamp_channel);
+            cJSON_AddNumberToObject(pay, "bit",16);
+            send_STM(pay);
+            cJSON_Delete(pay);
+
+            //Açma veya kapatma emrinden sonra cihazın statusunda lampon parametresi 1 veya 0 olmalı
+            searchMessage_t msg = {};
+            xQueueReset(searchQueue);
+            xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(3000));
+            if (count>3) {don=false;stat=0;}
+            //Eger
+            if (cpins.status==1) {if ((msg.name[0]&0x04)==0x04) don=false;}
+            if (cpins.status==0) {if ((msg.name[0]&0x04)!=0x04) don=false;}
+       } while (don);
+
+       if (stat==0) {
+          cpins.status=0;
+          instance.set_instance(cpins.channel,cpins.dev_addr,cpins.ins_addr,&cpins);
+       }
    }
 
     cJSON *root = cJSON_CreateObject();                      
@@ -532,9 +552,8 @@ void uartCallback(const uint8_t *data, size_t len)
             if (ix==1) ev.alan.instance = ev.alan.instance & 0b00011111;
 
             
-            // TODO: STM32 firmware "event" mesajına henüz kanal (chn) bilgisi eklemiyor.
-            // STM güncellenene kadar geçici olarak kanal=2 varsayılıyor.
-            uint8_t event_kanal = 2;
+            uint8_t event_kanal = 2; // fallback: eski STM firmware "kanal" göndermeyebilir
+            JSON_getint(rcv_json,"kanal", &event_kanal);
             instance_t ins = {};
             esp_err_t kk= instance.get_instance(event_kanal, ev.alan.addr>>1,ev.alan.instance, &ins);
             printf("Event Adr:%d Ins:%d Event:%d Tus:%d Type:%d\n",ev.alan.addr>>1,ev.alan.instance,ev.alan.event,ix,ins.type);

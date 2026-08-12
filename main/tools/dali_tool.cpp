@@ -1472,11 +1472,53 @@ void scene_name(cJSON *payload, pck_t *pck)
 }
 
 
+// device.json -> hardware_devices[].functions[] içindeki ANAHTAR tipi (yerel switch)
+// fonksiyonları, DALI instance kaydıyla aynı şemada (chn/adr/iadr/type/act) cJSON
+// dizisine ekler. Ayrı bir RAM kataloğu tutmak yerine bu bilgi istek üzerine (bu
+// fonksiyon çağrıldığında) device.json'dan taze okunuyor.
+static void add_local_switches_to_catalog(cJSON *arr)
+{
+    const char *name1="/config/device.json";
+    if (!disk.file_search(name1)) return;
+
+    int fsize = disk.file_size(name1);
+    char *buf = (char *) malloc(fsize+5);
+    if (buf==NULL) return;
+    FILE *fd = fopen(name1, "r");
+    if (fd==NULL) { free(buf); return; }
+    fread(buf, fsize, 1, fd);
+    fclose(fd);
+
+    DynamicJsonDocument doc(fsize+5);
+    DeserializationError error = deserializeJson(doc, buf);
+    free(buf);
+    if (error) return;
+
+    for (JsonObject dev : doc["hardware_devices"].as<JsonArray>()) {
+        for (JsonObject fn : dev["functions"].as<JsonArray>()) {
+            const char *ftype = fn["f_type"];
+            if (ftype==nullptr || strcmp(ftype,"ANAHTAR")!=0) continue;
+
+            cJSON *Lm = cJSON_CreateObject();
+            cJSON_AddItemToObject(Lm, "chn", cJSON_CreateNumber(10));
+            cJSON_AddItemToObject(Lm, "adr", cJSON_CreateNumber((int)fn["f_id"]));
+            cJSON_AddItemToObject(Lm, "iadr", cJSON_CreateNumber(0));
+            cJSON_AddItemToObject(Lm, "type", cJSON_CreateNumber(INSTANCE_TYPE_BUTTON));
+            // DALI'deki "act" (ins_active) karşılığı olarak is_assigned kullanılıyor —
+            // ikisi de kabaca "zaten kullanımda mı" anlamına geliyor.
+            cJSON_AddItemToObject(Lm, "act", cJSON_CreateNumber((bool)fn["is_assigned"] ? 1 : 0));
+            cJSON_AddItemToArray(arr, Lm);
+        }
+    }
+}
+
 void instance_intro(pck_t *pck)
 {
-    cJSON *pay = cJSON_CreateObject();                         
+    cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "ins_intro");
-    cJSON_AddItemToObject(pay, "scn", instance.instance_intro());
+    cJSON *scn = instance.instance_intro(); // DALI kayıtları
+    add_local_switches_to_catalog(scn);     // + yerel anahtarlar
+    cJSON_AddItemToObject(pay, "scn", scn);
     send_AK(pay,pck);
 }
 
