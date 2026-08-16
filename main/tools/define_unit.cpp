@@ -54,13 +54,13 @@ void default_config(void)
      GlobalConfig.mode = 0;
      GlobalConfig.alarm = 0;
      GlobalConfig.alarm_aktif = 0;
-     strcpy((char*)GlobalConfig.license,"SMQLC02");
+     strcpy((char*)GlobalConfig.license,"SMQLC999");
      strcpy((char*)GlobalConfig.mqtt,"broker.emqx.io");
 
      GlobalConfig.kanal1 = 1;
-     GlobalConfig.kanal2 = 1;
-     GlobalConfig.kanal3 = 1;
-     GlobalConfig.kanal4 = 1;
+     GlobalConfig.kanal2 = 0;
+     GlobalConfig.kanal3 = 0;
+     GlobalConfig.kanal4 = 0;
 
      GlobalConfig.binaNo = 1;
      GlobalConfig.katNo = 1;
@@ -92,7 +92,7 @@ void network_default_config(void)
 {
      ESP_LOGD("DISK","      Write Default Network Variable");
      NetworkConfig.home_default = 1;
-     NetworkConfig.wan_type = WAN_WIFI; //WAN_WIFI; //WAN_ETHERNET   
+     NetworkConfig.wan_type = WAN_ETHERNET; //WAN_WIFI; //WAN_ETHERNET   
      NetworkConfig.ipstat = STATIC_IP; //STATIC_IP; //DYNAMIC_IP
      
      strcpy((char*)NetworkConfig.ip,"192.168.1.80");
@@ -210,13 +210,14 @@ void file_initialize(void)
 
     network_define();
 
-    instance.file_init(&disk);
-   
+    instance.file_init(&disk,"/config/instance.bin");
+    instanceL.file_init(&disk,"/config/instanceL.bin");
+
        gear01.file_init(&disk,GEAR01_FILE, &instance);
        gear02.file_init(&disk,GEAR02_FILE, &instance);
        gear03.file_init(&disk,GEAR03_FILE, &instance);
        gear04.file_init(&disk,GEAR04_FILE, &instance);
-       gear10.file_init(&disk,GEAR10_FILE, &instance);
+       gear10.file_init(&disk,GEAR10_FILE, &instanceL);
 
     if (GlobalConfig.mod_format==1) {
         gear10.clear_file();
@@ -399,7 +400,76 @@ void Local_Device_Read(void) {
 
         gear10.list_gear();
 
-        doc.clear();                       
+        // Yerel (kanal=10) anahtar/sensör kataloğunu (instanceL) device.json'daki
+        // hardware_devices[].functions[] ile senkronize et. DALI'deki "cihaz ara" akışının
+        // yerel karşılığı: her açılışta device.json'daki güncel donanım durumu instanceL'e
+        // yansıtılır — yeni fonksiyonlar eklenir, artık olmayanlar silinir, ama daha önce
+        // atanmış bir hedef (com/com_addr/process) varsa bozulmaz.
+        uint8_t seen_adr[MAX_INSTANCE];
+        uint8_t seen_count = 0;
+
+        for (JsonObject dev : doc["hardware_devices"].as<JsonArray>()) {
+            // device_id==1 (Merkezi Kontrolör) üzerindeki anahtar/sensör fonksiyonları
+            // dikkate alınmaz — sadece diğer donanım cihazlarındaki (ör. Ek Röle kartları)
+            // ANAHTAR/SWITCH/SENSOR fonksiyonları instanceL'e senkronize edilir.
+            int device_id = dev["device_id"];
+            if (device_id==1) continue;
+
+            for (JsonObject fn : dev["functions"].as<JsonArray>()) {
+                const char *ftype = fn["f_type"];
+                if (ftype==nullptr) continue;
+
+                uint8_t ins_type;
+                // filter alanı DALI'de instance event filtresi için, yerelde kullanılmıyordu —
+                // burada ANAHTAR (momentary tuş, filter=0) / SWITCH (maintained anahtar, filter=1)
+                // ayrımını taşımak için yeniden kullanılıyor (bkz. "tus" handler'ı, main.cpp).
+                uint8_t sub_filter = 0;
+                if (strcmp(ftype,"ANAHTAR")==0) { ins_type = INSTANCE_TYPE_BUTTON; sub_filter = 0; }
+                else if (strcmp(ftype,"SWITCH")==0) { ins_type = INSTANCE_TYPE_BUTTON; sub_filter = 1; }
+                else if (strcmp(ftype,"SENSOR")==0) { ins_type = INSTANCE_TYPE_MOTION; sub_filter = 0; }
+                else continue;
+
+                uint8_t f_id = (uint8_t)(int)fn["f_id"];
+                bool is_assigned = fn["is_assigned"];
+                // is_assigned==true: bu pin zaten doğrudan bir cihaza/devreye bağlı (boşta
+                // değil) — app üzerinden hedef ataması için PASİF gösterilir.
+                uint8_t active = is_assigned ? 0 : 1;
+
+                if (seen_count<MAX_INSTANCE) seen_adr[seen_count++] = f_id;
+
+                instance_t existing = {};
+                if (instanceL.get_instance(10, f_id, 0, &existing) == ESP_OK) {
+                    // Var olan kayıt — sadece envanter bilgisini güncelle, hedefi (com/
+                    // com_addr/process) olduğu gibi bırak.
+                    existing.type = ins_type;
+                    existing.ins_active = active;
+                    existing.filter = sub_filter;
+                    instanceL.set_instance(10, f_id, 0, &existing);
+                } else {
+                    instance_t fresh = {};
+                    instanceL.bosalt(&fresh);
+                    fresh.channel = 10;
+                    fresh.dev_addr = f_id;
+                    fresh.ins_addr = 0;
+                    fresh.type = ins_type;
+                    fresh.ins_active = active;
+                    fresh.filter = sub_filter;
+                    instanceL.add(&fresh);
+                }
+            }
+        }
+
+        // device.json'da artık karşılığı olmayan (donanımdan kaldırılmış) yerel kayıtları temizle.
+        for (int i=0;i<MAX_INSTANCE;i++) {
+            instance_t ff = {};
+            if (instanceL.get_instance_at(i, &ff) && ff.channel==10 && ff.dev_addr!=0xFF) {
+                bool found = false;
+                for (uint8_t s=0; s<seen_count; s++) if (seen_adr[s]==ff.dev_addr) { found = true; break; }
+                if (!found) instanceL.del(10, ff.dev_addr);
+            }
+        }
+
+        doc.clear();
         free(buf);
       }
 }

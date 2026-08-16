@@ -36,7 +36,8 @@ Room room = Room();
 Anahtar anahtar = Anahtar();
 Gurup gurup = Gurup();
 Gurup scene = Gurup();
-Instance instance = Instance();
+Instance instance = Instance();   // DALI (kanal 1-4) instance kataloğu — /config/instance.bin
+Instance instanceL = Instance();  // Yerel (kanal 10) anahtar/sensör kataloğu — /config/instanceL.bin, device.json ile senkronize
 Fcm fcm = Fcm();
 
    Gear gear01 = Gear();

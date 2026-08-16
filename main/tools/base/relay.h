@@ -91,16 +91,16 @@ class Relay : public Base_Device {
         if (port->button_type==BUTTON_ANAHTAR) {
             //Anahtarda kenara bakmaz state durumuna bakar
             //stat her degiştiginde durum degişir
-            if (state==1) off(); else set_power(0xFE);
+            if (state!=0) off(); else set_power(0xFE);
         } 
         if (port->button_type==BUTTON_SWITCH) {
             if (port->active_state==1) {
               if (stat==1) {
-                 if (state==1) off(); else set_power(0xFE);
+                 if (state!=0) off(); else set_power(0xFE);
               }              
             } else {
               if (stat==0) {
-                 if (state==1) off(); else set_power(0xFE);
+                 if (state!=0) off(); else set_power(0xFE);
               }
             }
         }

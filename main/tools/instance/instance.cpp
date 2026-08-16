@@ -11,12 +11,15 @@ void Instance::bosalt(instance_t *kk)
     kk->ins_active = 0x00;
     kk->filter = 0x00;
 
+    kk->com = CM_UNKNOWN;
+    kk->process = PR_UNKNOWN;
+    kk->com_addr = 0xFF;
+    kk->lamp_channel = 0xFF;
+
     kk->status = 0xFF;
     kk->temp = 0x00;
     kk->temp_set = 16;
     kk->temp_type = 0x00;
-    kk->com_addr = 0xFF;
-    kk->lamp_channel = 0xFF;
 }
 
 bool Instance::file_emty(void)
@@ -30,14 +33,14 @@ bool Instance::file_emty(void)
     for(int i = 0; i < MAX_INSTANCE; i++) {
         memcpy(&buffer[i], &kk, sizeof(instance_t));
     }
-    disk->write_file(INSTANCE_FILE,buffer,sz,0);
+    disk->write_file(file_name,buffer,sz,0);
     free(buffer);
     return true;
 }
 
 bool Instance::file_format(void)
 {
-    if (!disk->file_control(INSTANCE_FILE))
+    if (!disk->file_control(file_name))
       {
         file_emty();
         file_ready=true;
@@ -45,37 +48,36 @@ bool Instance::file_format(void)
     return true;
 }
 
-cJSON *Instance::instance_intro(void)
+void Instance::instance_intro(cJSON *arr)
 {
     cJSON *Lm;
-    cJSON *grp = cJSON_CreateArray();
     for (int i=0;i<MAX_INSTANCE;i++)
     {
         instance_t ff={};
-        disk->read_file(INSTANCE_FILE,&ff,sizeof(instance_t),i);
+        disk->read_file(file_name,&ff,sizeof(instance_t),i);
         if (ff.dev_addr!=0xFF) {
-            // NOT: Uygulama (InsIntroScn modeli) her kayıtta adr/iadr/chn/type/act/
-            // proc/cm/cmadr/stat/temp/tset/ttype alanlarının hepsinin var olmasını
-            // bekliyor (zorunlu alanlar). Termostat (TEMPERATURE) dışındaki tiplerde
-            // proc/cm/cmadr artık instance_t'de tutulmuyor (trigger_t'ye taşındı,
-            // adım 6'da buraya bağlanacak) — o yüzden şimdilik yer tutucu gönderiliyor.
+            // Termostat dışındaki tiplerde stat/temp/ttype (çalışma zamanı sıcaklık durumu)
+            // anlamsız olduğu için 0 gönderiliyor. tset istisna: MOTION tipinde hareket
+            // sensörünün retrigger timer süresini (saniye) taşıyor, o yüzden orada da gerçek
+            // değer gönderiliyor. Hedef bilgisi (proc/cm/cmadr/ins_kanal) tüm tiplerde gerçek.
             bool isTemp = (ff.type==INSTANCE_TYPE_TEMPERATURE);
-            cJSON_AddItemToArray(grp, Lm = cJSON_CreateObject());
+            bool isMotion = (ff.type==INSTANCE_TYPE_MOTION);
+            cJSON_AddItemToArray(arr, Lm = cJSON_CreateObject());
             cJSON_AddItemToObject(Lm, "chn", cJSON_CreateNumber(ff.channel));
             cJSON_AddItemToObject(Lm, "adr", cJSON_CreateNumber(ff.dev_addr));
             cJSON_AddItemToObject(Lm, "iadr", cJSON_CreateNumber(ff.ins_addr));
             cJSON_AddItemToObject(Lm, "type", cJSON_CreateNumber(ff.type));
+            cJSON_AddItemToObject(Lm, "filter", cJSON_CreateNumber(ff.filter));
             cJSON_AddItemToObject(Lm, "act", cJSON_CreateNumber(ff.ins_active));
-            cJSON_AddItemToObject(Lm, "proc", cJSON_CreateNumber(PR_UNKNOWN));
-            cJSON_AddItemToObject(Lm, "cm", cJSON_CreateNumber(CM_UNKNOWN));
-            cJSON_AddItemToObject(Lm, "cmadr", cJSON_CreateNumber(isTemp ? ff.com_addr : 0xff));
+            cJSON_AddItemToObject(Lm, "proc", cJSON_CreateNumber(ff.process));
+            cJSON_AddItemToObject(Lm, "cm", cJSON_CreateNumber(ff.com));
+            cJSON_AddItemToObject(Lm, "cmadr", cJSON_CreateNumber(ff.com_addr));
             cJSON_AddItemToObject(Lm, "stat", cJSON_CreateNumber(isTemp ? ff.status : 0));
             cJSON_AddItemToObject(Lm, "temp", cJSON_CreateNumber(isTemp ? ff.temp : 0));
-            cJSON_AddItemToObject(Lm, "tset", cJSON_CreateNumber(isTemp ? ff.temp_set : 0));
+            cJSON_AddItemToObject(Lm, "tset", cJSON_CreateNumber((isTemp || isMotion) ? ff.temp_set : 0));
             cJSON_AddItemToObject(Lm, "ttype", cJSON_CreateNumber(isTemp ? ff.temp_type : 0));
         }
     }
-    return grp;
 }
 
 
@@ -92,10 +94,10 @@ void Instance::add(instance_t *kk)
         for (uint8_t  i=0;i<MAX_INSTANCE;i++)
         {
             instance_t ff={};
-            disk->read_file(INSTANCE_FILE,&ff,sizeof(instance_t),i);
+            disk->read_file(file_name,&ff,sizeof(instance_t),i);
                 if (ff.channel==kk->channel && ff.dev_addr==kk->dev_addr) {
                     //printf("%d Kayıtlı Instance(%d:%d:%d) Adresi silindi\n",i,ff.channel,ff.dev_addr,ff.ins_addr);
-                    disk->write_file(INSTANCE_FILE,&bos,sizeof(instance_t),i);
+                    disk->write_file(file_name,&bos,sizeof(instance_t),i);
                     vTaskDelay(5/portTICK_PERIOD_MS);
                                                }
         }
@@ -106,14 +108,14 @@ void Instance::add(instance_t *kk)
     instance_t ff={};
     for (bos_adres=0;bos_adres<MAX_INSTANCE;bos_adres++)
     {
-        disk->read_file(INSTANCE_FILE,&ff,sizeof(instance_t),bos_adres);
+        disk->read_file(file_name,&ff,sizeof(instance_t),bos_adres);
         if (ff.dev_addr==0xFF) break;
     }
 
    // printf("%d:%d:%d için bulunan Boş adres %d\n", kk->channel, kk->dev_addr, kk->ins_addr, bos_adres);
 
     if (bos_adres<MAX_INSTANCE) {
-        disk->write_file(INSTANCE_FILE,kk,sizeof(instance_t),bos_adres);
+        disk->write_file(file_name,kk,sizeof(instance_t),bos_adres);
         //printf("%d Adresine yazıldı\n", bos_adres);
         vTaskDelay(10/portTICK_PERIOD_MS);
     }
@@ -125,10 +127,10 @@ void Instance::del(uint8_t channel, uint8_t adr) {
     bosalt(&bos);
     for (int i=0;i<MAX_INSTANCE;i++)
     {
-        disk->read_file(INSTANCE_FILE,&ff,sizeof(instance_t),i);
+        disk->read_file(file_name,&ff,sizeof(instance_t),i);
         if (ff.channel==channel && ff.dev_addr==adr) {
             // printf("Silinecek\n");
-            disk->write_file(INSTANCE_FILE,&bos,sizeof(instance_t),i);
+            disk->write_file(file_name,&bos,sizeof(instance_t),i);
             vTaskDelay(5/portTICK_PERIOD_MS);
         }
     }
@@ -139,7 +141,7 @@ esp_err_t Instance::get_instance(uint8_t channel, uint8_t adr, uint8_t ins, inst
     instance_t ff={};
     for (int i=0;i<MAX_INSTANCE;i++)
     {
-        disk->read_file(INSTANCE_FILE,&ff,sizeof(instance_t),i);
+        disk->read_file(file_name,&ff,sizeof(instance_t),i);
         //if(ff.dev_addr!=0xFF) printf("Aranan %d:%d:%d Bulunan %d:%d:%d\n",channel,adr,ins,ff.channel,ff.dev_addr,ff.ins_addr);
         if (ff.channel==channel && ff.dev_addr==adr && ff.ins_addr==ins) {
            // printf("Bulundu\n");
@@ -154,26 +156,41 @@ void Instance::set_instance(uint8_t channel, uint8_t adr, uint8_t ins, instance_
 {
     instance_t ff={};
     uint8_t index = 0;
+    uint8_t free_index = MAX_INSTANCE;
     for (index=0;index<MAX_INSTANCE;index++)
     {
-        disk->read_file(INSTANCE_FILE,&ff,sizeof(instance_t),index);
+        disk->read_file(file_name,&ff,sizeof(instance_t),index);
         if (ff.channel==channel && ff.dev_addr==adr && ff.ins_addr==ins) break;
+        if (free_index==MAX_INSTANCE && ff.dev_addr==0xFF) free_index = index;
     }
    // printf("Save Bulunan INDEX : %d:%d:%d %d\n",channel,adr,ins,index);
-   if (index<MAX_INSTANCE)
-        disk->write_file(INSTANCE_FILE,kk,sizeof(instance_t),index);
+   if (index<MAX_INSTANCE) {
+        disk->write_file(file_name,kk,sizeof(instance_t),index);
+   } else if (free_index<MAX_INSTANCE) {
+        // Kayıt henüz katalogda yok (örn. hiç add() edilmemiş bir yerel anahtar) —
+        // sessizce no-op yerine ilk boş slota yeni kayıt olarak yaz.
+        disk->write_file(file_name,kk,sizeof(instance_t),free_index);
+   }
 }
 
+
+bool Instance::get_instance_at(uint8_t index, instance_t *kk)
+{
+    if (index>=MAX_INSTANCE) return false;
+    disk->read_file(file_name,kk,sizeof(instance_t),index);
+    return true;
+}
 
 void Instance::list_instance(void)
 {
     instance_t ff={};
     for (int i=0;i<MAX_INSTANCE;i++)
     {
-        disk->read_file(INSTANCE_FILE,&ff,sizeof(instance_t),i);
+        disk->read_file(file_name,&ff,sizeof(instance_t),i);
         if(ff.dev_addr!=0xFF)
-        printf("%d Kanal:%d Adr:%d:%d Tip:%d Aktif:%d\n",
-            i,ff.channel,ff.dev_addr,ff.ins_addr,ff.type,ff.ins_active
+        printf("%d Kanal:%d Adr:%d:%d Tip:%d Filter:%d Aktif:%d HedefKanal:%d HedefId:%d Cm:%d Proc:%d\n",
+            i,ff.channel,ff.dev_addr,ff.ins_addr,ff.type,ff.filter,ff.ins_active,
+            ff.lamp_channel,ff.com_addr,ff.com,ff.process
         );
     }
 }

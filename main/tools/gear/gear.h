@@ -36,17 +36,6 @@ typedef struct {
     uint8_t reserved[5];
 } __attribute__((packed)) dev_spec_t;
 
-// Bir lambayı/cihazı tetikleyen tek bir anahtar/sensör kaynağı ve ne yapacağı.
-// switch_channel/switch_addr/switch_ins, instance.h'daki instance_t'nin anahtarıyla
-// aynı şemayı kullanır (DALI: gerçek adres+instance | Yerel: channel=10, addr=pin, ins=0).
-#define MAX_TRIGGER 2
-typedef struct {
-    uint8_t switch_channel;
-    uint8_t switch_addr;
-    uint8_t switch_ins;
-    instance_process_type_t process;
-} __attribute__((packed)) trigger_t;
-
 typedef struct {
     uint8_t aktif;
     uint8_t short_addr;
@@ -60,10 +49,7 @@ typedef struct {
     uint8_t room;
     uint8_t instance;
     dev_spec_t spec;
-    uint8_t anahtar; // ESKİ mekanizma (anahtar_tool.cpp) — trigger_t devreye girene kadar duruyor, sonra kaldırılacak
-
-    trigger_t triggers[MAX_TRIGGER];
-    uint8_t trigger_count;
+    uint8_t anahtar; // Virtual anahtar (switch_t) id'si — anahtar_tool.cpp'nin fan-out mekanizması
 } __attribute__((packed)) gear_t;
 
 

@@ -305,17 +305,295 @@ void lamp_action(uint8_t adr, uint8_t grp, uint8_t cmd, uint8_t chn, bool say=tr
         cJSON_Delete(root);
 }
 
-// TODO (adım 6): Bu fonksiyon, gear tablolarını (gear01-04 + gear10) tarayıp
-// trigger_t[] içinde (switch_channel==param->channel && switch_addr==param->adr &&
-// switch_ins==param->ins) eşleşen her kaydı bulup, o trigger'ın kendi "process"
-// alanına göre lamp_action() çağıracak şekilde yeniden yazılacak — DALI anahtarları
-// ve yerel "tus" tuşları için ORTAK tetikleme mekanizması burada birleşecek.
-// Şimdilik sadece derlensin diye no-op bırakıldı.
+// instance_t.process -> DALI hexcom eşlemesi. OFF/TOGGLE/sensör-kaynaklı tipler burada değil,
+// trigger_instance() içinde ayrı ele alınıyor (özel STM komutu ya da canlı durum gerektiriyorlar).
+static uint8_t process_to_hexcom(instance_process_type_t proc)
+{
+    switch (proc) {
+        case PR_ON:       return 0x0A; // GOTO LAST ACTIVE LEVEL
+        case PR_MAXLEVEL: return 0x05; // RECALL MAX LEVEL
+        case PR_MINLEVEL: return 0x06; // RECALL MIN LEVEL
+        case PR_UPDIM:    return 0x01; // UP
+        case PR_DOWNDIM:  return 0x02; // DOWN
+        default:          return 0x00;
+    }
+}
+
+typedef struct {
+    uint8_t adr;
+    uint8_t kanal;
+    uint8_t grp;
+    bool say;
+} toggle_query_par_t;
+
+// DALI'de gerçek toggle: mevcut durumu sorgulayıp tam tersini gönderir. STM'nin kendi
+// donanımsal toggle komutuna (0xEE) güvenmek yerine biz garanti ediyoruz — bu yüzden ayrı
+// bir task olarak çalışır (query bloklayıcı, tus/UART işleme hattını beklemeye almamalı).
+static void dali_toggle_query_task(void *pvParameters)
+{
+    toggle_query_par_t param = {};
+    memcpy(&param, pvParameters, sizeof(toggle_query_par_t));
+
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddStringToObject(root, "com", "query");
+    cJSON_AddNumberToObject(root, "hexcom", create_command(param.adr, param.grp==1, false, QUERY_STATUS));
+    cJSON_AddNumberToObject(root, "kanal", param.kanal);
+    cJSON_AddNumberToObject(root, "bit", 16);
+    send_STM(root);
+    cJSON_Delete(root);
+
+    searchMessage_t msg = {};
+    xQueueReset(searchQueue);
+    xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(3000));
+
+    bool isOn = ((msg.name[0] & 0x04) == 0x04);
+    lamp_action(param.adr, param.grp, isOn ? 0x00 : 0x05, param.kanal, param.say);
+
+    vTaskDelete(NULL);
+}
+
+// Bir instance'ın (DALI ya da yerel, fark etmez) kendi kayıtlı hedefini (com/com_addr/
+// lamp_channel) process'ine göre tetikler. event_stat, sensör-kaynaklı process tiplerinde
+// (Max On/Off, MxOn/MnOff) ham olay durumunu (0/1) taşır; buton tipi tetiklemelerde 1 gönderilir.
+// followState=true: process'ten bağımsız, doğrudan event_stat'ı takip eder (ANAHTAR/momentary
+// tuş — basılıyken açık, bırakılınca kapalı).
+// toggleState=true: process'ten bağımsız, her çağrıda hedefin durumunu tersine çevirir (SWITCH
+// — her stat==1'de lamba durumu değişir).
+void trigger_instance(instance_t &ins, uint8_t event_stat = 1, bool say = true, bool followState = false, bool toggleState = false)
+{
+    if (ins.com == CM_UNKNOWN || ins.com_addr == 0xff) return; // hedef atanmamış
+
+    if (followState) {
+        uint8_t grp = (ins.com == CM_GROUP) ? 1 : 0;
+        uint8_t hexcom = (event_stat != 0) ? 0x05 : 0x00; // Max Level : Off
+        switch (ins.com) {
+            case CM_LAMP:
+            case CM_GROUP:
+                lamp_action(ins.com_addr, grp, hexcom, ins.lamp_channel, say);
+                break;
+            case CM_SWITCH: {
+                static task_par_t aktar = {};
+                aktar.command = (event_stat != 0) ? 1 : 2; // 1: Aç/Max, 2: Kapat
+                aktar.id = ins.com_addr;
+                aktar.level = 200;
+                aktar.task = NULL;
+                xTaskCreatePinnedToCore(anahtar_on_task, "instrig", 4096, &aktar, 2, NULL, 1);
+            } break;
+            case CM_SCENE:
+                // Senaryonun "kapalı" karşılığı yok — sadece basma anında (stat==1) tetiklenir.
+                if (event_stat != 0) {
+                    uint8_t sceneHex = 0x10 + ins.com_addr;
+                    for (uint8_t kanal = 1; kanal <= 3; kanal++) lamp_action(0xFF, 0, sceneHex, kanal, say);
+                }
+                break;
+            default: break;
+        }
+        return;
+    }
+
+    if (toggleState) {
+        uint8_t grp = (ins.com == CM_GROUP) ? 1 : 0;
+        switch (ins.com) {
+            case CM_LAMP:
+            case CM_GROUP:
+                if (ins.lamp_channel == 10) {
+                    for (Base_Device* cihaz : cihaz_listesi) {
+                        if (cihaz->device_id == ins.com_addr || ins.com_addr == 0xff) {
+                            if (cihaz->get_status() != 0) cihaz->off(say); else cihaz->set_power(254, say);
+                        }
+                    }
+                } else {
+                    static toggle_query_par_t tparam = {};
+                    tparam.adr = ins.com_addr;
+                    tparam.kanal = ins.lamp_channel;
+                    tparam.grp = grp;
+                    tparam.say = say;
+                    xTaskCreatePinnedToCore(dali_toggle_query_task, "togglequery", 4096, &tparam, 1, NULL, 1);
+                }
+                break;
+            case CM_SWITCH: {
+                static task_par_t aktar = {};
+                aktar.command = 4; // Toggle (anahtar_onaction cmd tablosu)
+                aktar.id = ins.com_addr;
+                aktar.level = 200;
+                aktar.task = NULL;
+                xTaskCreatePinnedToCore(anahtar_on_task, "instrig", 4096, &aktar, 2, NULL, 1);
+            } break;
+            case CM_SCENE: {
+                uint8_t sceneHex = 0x10 + ins.com_addr;
+                for (uint8_t kanal = 1; kanal <= 3; kanal++) lamp_action(0xFF, 0, sceneHex, kanal, say);
+            } break;
+            default: break;
+        }
+        return;
+    }
+
+    bool isToggle = (ins.process == PR_TOGGLE || ins.process == PR_TOGMAX);
+    bool isSensorDriven = (ins.process == PR_ONOFF || ins.process == PR_MXMN);
+
+    switch (ins.com) {
+        case CM_LAMP:
+        case CM_GROUP: {
+            uint8_t grp = (ins.com == CM_GROUP) ? 1 : 0;
+
+            if (isToggle) {
+                if (ins.lamp_channel == 10) {
+                    for (Base_Device* cihaz : cihaz_listesi) {
+                        if (cihaz->device_id == ins.com_addr || ins.com_addr == 0xff) {
+                            if (cihaz->get_status() != 0) cihaz->off(say); else cihaz->set_power(254, say);
+                        }
+                    }
+                } else {
+                    // DALI'de gerçek toggle: STM'nin 0xEE özel komutu DALI-2 standardının bir
+                    // parçası değil ve güvenilirliği doğrulanamadı — bunun yerine SWITCH'te
+                    // kullandığımız aynı sorgula+tersine-çevir mekanizması (standart
+                    // QUERY_STATUS) kullanılıyor.
+                    static toggle_query_par_t tparam = {};
+                    tparam.adr = ins.com_addr;
+                    tparam.kanal = ins.lamp_channel;
+                    tparam.grp = grp;
+                    tparam.say = say;
+                    xTaskCreatePinnedToCore(dali_toggle_query_task, "togglequery", 4096, &tparam, 1, NULL, 1);
+                }
+            } else if (isSensorDriven) {
+                uint8_t offHex = (ins.process == PR_MXMN) ? 0x06 : 0x00; // MIN ya da OFF
+                uint8_t hexcom = (event_stat != 0) ? 0x05 : offHex; // MAX ya da yukarıdaki
+                lamp_action(ins.com_addr, grp, hexcom, ins.lamp_channel, say);
+            } else if (ins.process == PR_OFF) {
+                lamp_action(ins.com_addr, grp, 0x00, ins.lamp_channel, say);
+            } else if (ins.process == PR_ARCPOWER) {
+                // Doğrudan seviye değeri instance_t'de tutulmuyor — henüz desteklenmiyor.
+            } else {
+                lamp_action(ins.com_addr, grp, process_to_hexcom(ins.process), ins.lamp_channel, say);
+            }
+        } break;
+
+        case CM_SCENE: {
+            // SENARYO: DALI kanal 1-3'e "goto scene" broadcast — voice.cpp'deki senaryo
+            // tetiklemesiyle aynı yol (adr=0xFF, grp=0, hexcom=GOTO_SCENE+senaryo_no).
+            uint8_t hexcom = 0x10 + ins.com_addr;
+            for (uint8_t kanal = 1; kanal <= 3; kanal++) {
+                lamp_action(0xFF, 0, hexcom, kanal, say);
+            }
+        } break;
+
+        case CM_SWITCH: {
+            // Virtual anahtar fan-out — anahtar_tool.cpp'deki an_on/an_off mekanizmasının
+            // ta kendisi (ağ cevabı beklemeden, doğrudan gear taramasını tetikliyoruz).
+            uint8_t cmd;
+            if (isToggle) cmd = 4;
+            else if (ins.process == PR_OFF) cmd = 2;
+            else cmd = 1;
+
+            static task_par_t aktar = {};
+            aktar.command = cmd;
+            aktar.id = ins.com_addr;
+            aktar.level = 200;
+            aktar.task = NULL;
+            xTaskCreatePinnedToCore(anahtar_on_task, "instrig", 4096, &aktar, 2, NULL, 1);
+        } break;
+
+        default: break;
+    }
+}
+
+// Hareket sensörü "retrigger" timer'ı: DALI ya da yerel fark etmeksizin, stat==1 geldiğinde
+// hedef hemen açılır ve bir timer başlar; tekrar stat==1 gelirse timer sıfırlanır (ışık açık
+// kalmaya devam eder); timer süresi dolunca hedef kapatılır. Süre şimdilik sabit — kullanıcı
+// bazında ayarlanabilir hale getirmek ayrı bir adım.
+#define SENSOR_TIMER_SEC 10
+
+typedef struct {
+    uint32_t key; // (channel<<16)|(dev_addr<<8)|ins_addr — sensörün kimliği
+    instance_t ins; // tetiklendiği andaki hedef bilgisiyle (com/com_addr/lamp_channel/process)
+    esp_timer_handle_t timer;
+} sensor_timer_t;
+
+static std::vector<sensor_timer_t*> sensor_timers;
+
+static void sensor_timer_off_cb(void *arg)
+{
+    sensor_timer_t *st = (sensor_timer_t*)arg;
+    printf("SENSOR_TIMER Kanal:%d Adr:%d:%d SURE DOLDU -> KAPATILIYOR\n",
+           st->ins.channel, st->ins.dev_addr, st->ins.ins_addr);
+    trigger_instance(st->ins, 0, true, true); // followState: hedefi kapat
+}
+
+void sensor_timer_trigger(instance_t &ins)
+{
+    uint32_t key = ((uint32_t)ins.channel << 16) | ((uint32_t)ins.dev_addr << 8) | ins.ins_addr;
+
+    sensor_timer_t *st = nullptr;
+    for (sensor_timer_t *t : sensor_timers) { if (t->key == key) { st = t; break; } }
+
+    if (st == nullptr) {
+        st = new sensor_timer_t();
+        st->key = key;
+        st->timer = nullptr;
+        esp_timer_create_args_t args = {};
+        args.callback = &sensor_timer_off_cb;
+        args.arg = st;
+        args.name = "sensortmr";
+        esp_timer_create(&args, &st->timer);
+        sensor_timers.push_back(st);
+    }
+    st->ins = ins; // güncel hedef bilgisiyle (uygulamadan yeni set edilmiş olabilir) tazele
+
+    // Süre app'ten (tset, DAKİKA) geliyor; hiç ayarlanmamışsa (0) sabit varsayılana (saniye) düş.
+    uint32_t seconds = (ins.temp_set > 0) ? (uint32_t)ins.temp_set * 60 : SENSOR_TIMER_SEC;
+
+    bool wasActive = esp_timer_is_active(st->timer);
+    if (wasActive) esp_timer_stop(st->timer);
+    esp_timer_start_once(st->timer, (uint64_t)seconds * 1000000ULL);
+    printf("SENSOR_TIMER Kanal:%d Adr:%d:%d %s (%lu sn)\n",
+           ins.channel, ins.dev_addr, ins.ins_addr,
+           wasActive ? "SIFIRLANDI" : "BASLADI", (unsigned long)seconds);
+
+    trigger_instance(ins, 1, true, true); // followState: hedefi hemen aç
+}
+
+// DALI "event" handler'ından (ix==1 tus bayrağı && ins.type==0x01 BUTTON) tetiklenir.
+// param->ev DALI2 standardı: 0=bırakıldı, 1=basıldı, 9=Long Press Start, 11=Long Press Repeat
+// (basılı tutulduğu sürece tekrarlanır), 12=Long Press Stop. Kullanıcının app'ten (Aksiyon
+// dropdown, ins_anahtar.dart) atadığı process'e göre davranır — yerelde kurulan ANAHTAR/SWITCH
+// ayrımı (filter alanının yeniden kullanımı) burada YOK, DALI'nin filter'ı kendi gerçek işine
+// (instance event filtresi) devam ediyor.
 void event_process_task(void *pvParameters)
 {
-   event_proc_par_t *param = (event_proc_par_t *)pvParameters;
-   printf("TUS basıldı Kanal:%d Adr:%d Ins:%d Ev:%d (trigger_t taraması henüz bağlanmadı)\n",
-          param->channel, param->adr, param->ins, param->ev);
+   event_proc_par_t param = {};
+   memcpy(&param, pvParameters, sizeof(event_proc_par_t));
+
+   instance_t ins = {};
+   esp_err_t kk = pick_instance(param.channel).get_instance(param.channel, param.adr, param.ins, &ins);
+   if (kk == ESP_OK) {
+       bool isSensorDriven = (ins.process == PR_ONOFF || ins.process == PR_MXMN);
+       bool isDim = (ins.process == PR_UPDIM || ins.process == PR_DOWNDIM);
+       if (ins.process == PR_TOGDIM && (ins.com == CM_LAMP || ins.com == CM_GROUP)) {
+           // Yön (ins.status: 1=AŞAĞI, başka her değer -taze kayıtta 0xFF dahil- YUKARI) basış
+           // boyunca sabit kalır, sadece Start/Repeat'te okunur; Stop'ta bir sonraki basış için
+           // ters çevrilip kalıcı olarak saklanır.
+           if (param.ev == 9 || param.ev == 11) {
+               uint8_t grp = (ins.com == CM_GROUP) ? 1 : 0;
+               uint8_t hexcom = (ins.status == 1) ? 0x02 : 0x01; // AŞAĞI : YUKARI
+               lamp_action(ins.com_addr, grp, hexcom, ins.lamp_channel, true);
+           } else if (param.ev == 12) {
+               ins.status = (ins.status == 1) ? 0 : 1;
+               pick_instance(param.channel).set_instance(param.channel, param.adr, param.ins, &ins);
+           }
+       } else if (isDim) {
+           // Basılı tutma boyunca (Start=9, Repeat=11) kademeli tetiklenir; kısa basış (0/1)
+           // ve Long Press Stop (12) için bir şey yapılmaz — DALI ballast'ı UP/DOWN komutunu
+           // aldıkça kendi kendine rampalıyor.
+           if (param.ev == 9 || param.ev == 11) {
+               trigger_instance(ins, 1);
+           }
+       } else if (isSensorDriven) {
+           trigger_instance(ins, param.ev); // her iki kenarda da (Event 0 ve 1), yön event'e göre
+       } else if (param.ev == 1) {
+           trigger_instance(ins, 1); // sadece basmada (Event=1)
+       }
+   }
+
    vTaskDelete(NULL);
 }
 
@@ -369,7 +647,7 @@ void process_and_control_task(void *pvParameters)
 
        if (stat==0) {
           cpins.status=0;
-          instance.set_instance(cpins.channel,cpins.dev_addr,cpins.ins_addr,&cpins);
+          pick_instance(cpins.channel).set_instance(cpins.channel,cpins.dev_addr,cpins.ins_addr,&cpins);
        }
    }
 
@@ -482,6 +760,12 @@ void uartCallback(const uint8_t *data, size_t len)
             stm_send_status = true;
         }
 
+        if (strcmp(command, "stm_boot") == 0) {
+            // STM32 (yeniden) başladı: kanal durumlarını tekrar bildirmek için
+            // led_task'ın bir sonraki turunda stm_status'u yeniden göndert.
+            stm_send_status = false;
+        }
+
         if (strcmp(command, "tus") == 0) {
             int pin = -1, stat = -1;
             if (cJSON_HasObjectItem(rcv_json, "pin")) {
@@ -492,11 +776,40 @@ void uartCallback(const uint8_t *data, size_t len)
             }
             if (pin != -1 && stat != -1) {
                 if (GlobalConfig.alarm==2 && GlobalConfig.alarm_aktif==0) Alarm_Activeted("ELEKTRIKSEL FAALİYET ALGILANDI",4);
-                for (Base_Device* cihaz : cihaz_listesi) {
-                    cihaz->button_process(pin,stat);
-                }   
+
+                instance_t ins = {};
+                bool isManaged = (instanceL.get_instance(10, (uint8_t)pin, 0, &ins) == ESP_OK && ins.ins_active == 1);
+
+                if (isManaged) {
+                    // Bu pin boşta (device.json'da bir cihaza doğrudan bağlı değil) — hedefini
+                    // instanceL'deki kayda göre tetikle, eski button_process yoluna hiç girme.
+                    // Tip (ve BUTTON içinde filter alt-tipi) tek tek ele alınıyor:
+                    // - ANAHTAR (BUTTON, filter=0, momentary tuş): doğrudan durumu takip eder —
+                    //   basılıyken (stat=1) yanar, bırakılınca (stat=0) söner.
+                    // - SWITCH (BUTTON, filter=1, maintained anahtar): her stat==1'de hedefin
+                    //   durumu tersine çevrilir (gerçek toggle, stat==0'da hiçbir şey olmaz).
+                    // - Hareket (MOTION): stat 0 ya da 1 fark etmeksizin (bu pin her basışta
+                    //   tek bir tus mesajı gönderiyor, stat değeri basma/bırakma anlamına
+                    //   gelmiyor) hedef açılır ve bir "retrigger" timer'ı başlar/sıfırlanır;
+                    //   kapatma kararını stat değil, timer verir.
+                    // - Diğerleri: sadece basma anında (stat==1) tetiklenir.
+                    if (ins.type == INSTANCE_TYPE_BUTTON && ins.filter == 1) {
+                        if (stat == 1) trigger_instance(ins, 1, true, false, true);
+                    } else if (ins.type == INSTANCE_TYPE_BUTTON) {
+                        trigger_instance(ins, (uint8_t)stat, true, true);
+                    } else if (ins.type == INSTANCE_TYPE_MOTION) {
+                        sensor_timer_trigger(ins);
+                    } else if (stat == 1) {
+                        trigger_instance(ins, 1);
+                    }
+                } else {
+                    // Pasif (bir cihaza zaten doğrudan bağlı) ya da hiç kayıtlı değil — eski akış.
+                    for (Base_Device* cihaz : cihaz_listesi) {
+                        cihaz->button_process(pin,stat);
+                    }
+                }
             }
-          
+
         }
 
         // ReliableUartManager için ACK işleme
@@ -539,6 +852,23 @@ void uartCallback(const uint8_t *data, size_t len)
             //udp_server.send_broadcast((uint8_t *)buf,strlen((char*)buf));
             udp_server.send_unicast_all((uint8_t *)buf,strlen((char*)buf));
             //mqtt_send((char*)buf);
+        }
+
+        if (strcmp(command,"hat_error")==0) {
+            // STM32'den gelen DALI hat arızası (kısa devre/kopukluk) bildirimi.
+            // Yaşamsal alarm değil, donanım arıza telemetrisi: ham mesajı olduğu gibi
+            // yerel ağdaki uygulamaya ve buluta ilet.
+            udp_server.send_unicast_all((uint8_t *)buf,strlen((char*)buf));
+            mqtt_send((char*)buf);
+
+            // data: bit0=DALI kanal1, bit1=kanal2, bit2=kanal3 (main.c: hat_error |= 1<<(chn-1))
+            uint8_t hat_mask = 0;
+            JSON_getint(rcv_json,"data",&hat_mask);
+            for (uint8_t ch = 0; ch < 3; ch++) {
+                if (hat_mask & (1 << ch)) {
+                    ESP_LOGE(TAG, "DALI hat arizasi: kanal %d", ch + 1);
+                }
+            }
         }
 
         if (strcmp(command,"event")==0) {
@@ -801,9 +1131,11 @@ void term_tara_task(void *pvParameters)
     vTaskDelay(10000/portTICK_PERIOD_MS);
 
     instance_t ff={};
+    Instance* stores[2] = {&instance, &instanceL}; // DALI + yerel termostat kayıtları
+    for (Instance* store : stores)
     for (int i=0;i<MAX_INSTANCE;i++)
-    {       
-        disk.read_file(INSTANCE_FILE,&ff,sizeof(instance_t),i); 
+    {
+        store->get_instance_at(i,&ff);
         if (ff.dev_addr!=0xFF) {
             if (ff.type==0x06 && ff.ins_active>0) {
                 //Bu Aktif bir termostattır
@@ -887,13 +1219,16 @@ void led_task(void *pvParameters)
       }
 
       if (stm_send_status==false) {
-            cJSON *root = cJSON_CreateObject();                      
+            cJSON *root = cJSON_CreateObject();
             cJSON_AddStringToObject(root, "com", "stm_status");
-            cJSON_AddNumberToObject(root, "ping", GlobalConfig.ping_active); 
-        
+            cJSON_AddNumberToObject(root, "ping", GlobalConfig.ping_active);
+            cJSON_AddNumberToObject(root, "kanal1", GlobalConfig.kanal1);
+            cJSON_AddNumberToObject(root, "kanal2", GlobalConfig.kanal2);
+            cJSON_AddNumberToObject(root, "kanal3", GlobalConfig.kanal3);
+
             send_STM(root);
             ESP_LOGI(TAG,"STM ye durum bildirildi");
-        } 
+        }
 
       vTaskDelay(2800/portTICK_PERIOD_MS);
       gpio_set_level(LED,1);

@@ -1,0 +1,10 @@
+{
+  "system_id": "LIGHT_01",
+  "name": "Çevre Aydınlatma Sistemi",
+  "status": "enabled",
+  "hardware": {
+    "segments": []
+  },
+  "event_links": [],
+  "zone_timings": {}
+}

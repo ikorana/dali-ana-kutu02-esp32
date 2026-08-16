@@ -9,12 +9,8 @@
 #include <storage_little.h>
 #include <cJSON.h>
 
-#define INSTANCE_FILE (char*)"/config/instance.bin"
 #define MAX_INSTANCE 64
 
-// NOT: com/process artık instance_t'de değil, trigger_t içinde (gear.h) —
-// bir switch/sensor'un NEYİ tetikleyeceği artık lambanın kendi kaydında tutuluyor.
-// Bu iki enum burada kalıyor çünkü trigger_t bunları kullanıyor (gear.h instance.h'ı include eder).
 typedef enum : uint8_t
 {
     CM_LAMP = 0,
@@ -37,6 +33,7 @@ typedef enum : uint8_t
     PR_ONOFF,
     PR_TOGMAX,
     PR_MXMN,
+    PR_TOGDIM, // Basılı tutma başına yön değişir: 1.basış YUKARI, 2.basış AŞAĞI... (instance_t.status'ta saklanır)
     PR_UNKNOWN=15,
 } instance_process_type_t;
 
@@ -50,9 +47,10 @@ typedef enum
     INSTANCE_TYPE_MOTION      = 0x03, // Hareket sensörü (henüz firmware'de karşılığı yok, yer tutucu)
 } instance_type_t;
 
-// instance_t artık sadece bir ENVANTER kaydı: "bu adreste böyle bir giriş var, tipi bu".
-// Hedef/davranış bilgisi (kim tetiklenecek, nasıl) artık burada değil — ilgili lambanın
-// kendi gear_t kaydındaki trigger_t[] dizisinde tutuluyor (bkz. gear.h).
+// instance_t: hem envanter kaydı ("bu adreste böyle bir giriş var, tipi bu") hem de
+// hedef/davranış bilgisi ("bu giriş neyi, nasıl tetikler") — tüm instance tiplerinde
+// (buton, hareket, termostat...) aynı şema kullanılıyor. "Anahtarı aç, üzerine hedefi
+// (lamba/grup/senaryo/anahtar) ata" prensibiyle: her instance kendi tek hedefini taşır.
 typedef struct {
     uint8_t channel;     // DALI: 1-4 | Yerel: 10
     uint8_t dev_addr;    // DALI: kısa adres (0-63) | Yerel: pin numarası
@@ -61,16 +59,17 @@ typedef struct {
     uint8_t ins_active;  // Aktif mi (DALI'de fiziksel cihazda da ayarlanır)
     uint8_t filter;      // DALI instance event filtresi (yerelde kullanılmaz, 0 kalır)
 
-    // Tipe özel çalışma zamanı durumu/hedefi — buton (INSTANCE_TYPE_BUTTON) tipinde
-    // kullanılmaz (butonun hedefi lambanın kendi trigger_t'sinde). Termostat ise
-    // olay-tetiklemeli değil, kendi kendine sürekli değerlendirip kendi hedefini
-    // kontrol eden bir yapı — bu yüzden hedefi burada, instance'ın kendi kaydında tutuluyor.
+    instance_command_t com;         // Hedefin türü: lamba/grup/senaryo/anahtar
+    instance_process_type_t process; // Hedefe uygulanacak eylem (aç/kapat/toggle...)
+    uint8_t com_addr;    // Hedefin adresi (cihaz/grup/senaryo/anahtar id'si)
+    uint8_t lamp_channel; // Hedefin kanalı
+
+    // Termostat'a özel çalışma zamanı durumu — olay-tetiklemeli değil, kendi kendine
+    // sürekli değerlendirip com_addr/lamp_channel'daki hedefi kontrol eder.
     uint8_t status;       // Termostat: röle/kontaktör son durumu
     uint8_t temp;         // Termostat: son okunan sıcaklık
     uint8_t temp_set;     // Termostat: hedef sıcaklık
     uint8_t temp_type;    // Termostat: 0 ısıtma, 1 soğutma, 2 manuel açık, 3 manuel kapalı
-    uint8_t com_addr;     // Termostat: kontrol edilecek röle/kontaktör adresi
-    uint8_t lamp_channel; // Termostat: hedefin kanalı
 } instance_t;
 
 class Instance
@@ -79,8 +78,9 @@ class Instance
       Instance() {};
       ~Instance(){};
 
-      bool file_init(StorageLittle *dsk) {
+      bool file_init(StorageLittle *dsk, const char *fn) {
         disk = dsk;
+        file_name = fn;
         return file_format();
       };
 
@@ -90,8 +90,9 @@ class Instance
 
       esp_err_t get_instance(uint8_t channel, uint8_t adr, uint8_t ins, instance_t *kk);
       void set_instance(uint8_t channel, uint8_t adr, uint8_t ins, instance_t *kk);
+      bool get_instance_at(uint8_t index, instance_t *kk); // ham slot okuma (senkronizasyon/temizlik taramaları için)
 
-      cJSON *instance_intro(void);
+      void instance_intro(cJSON *arr); // mevcut diziye kendi kayıtlarını ekler (DALI + yerel katalog birleştirilebilsin diye)
       void list_instance(void);
       void clear_file(void) {
         file_emty();
@@ -100,7 +101,7 @@ class Instance
       
     private:
       StorageLittle *disk;
-
+      const char *file_name;
 
       bool file_ready=false;
       bool file_format(void);

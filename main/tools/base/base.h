@@ -318,8 +318,10 @@ class Base_Device {
         }
 
 
-        uint8_t get_status(void) { return (state==1)?0x04:0x00; }
-        uint8_t get_level(void) { return (state==1)?0xFE:0x00; }
+        // NOT: state alanı alt sınıflarda (Relay, RelayLamp, Priz...) 0 (kapalı) / 0xFE (açık)
+        // olarak tutuluyor, asla tam olarak 1 olmuyor — bu yüzden "state!=0" kontrol edilmeli.
+        uint8_t get_status(void) { return (state!=0)?0x04:0x00; }
+        uint8_t get_level(void) { return (state!=0)?0xFE:0x00; }
 
         void set_room(uint8_t rm) { 
             device_room=rm; 

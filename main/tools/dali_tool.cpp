@@ -6,6 +6,11 @@
 #include "portmacro.h"
 #include "tools/dali_command.h"
 #include "tools/gear/gear.h"
+
+// DALI (kanal 1-4) kayıtları instance'de, yerel (kanal 10) kayıtlar instanceL'de tutulur.
+static inline Instance& pick_instance(uint8_t kanal) {
+    return (kanal==10) ? instanceL : instance;
+}
 typedef union {
     uint16_t all;
 
@@ -1472,52 +1477,13 @@ void scene_name(cJSON *payload, pck_t *pck)
 }
 
 
-// device.json -> hardware_devices[].functions[] içindeki ANAHTAR tipi (yerel switch)
-// fonksiyonları, DALI instance kaydıyla aynı şemada (chn/adr/iadr/type/act) cJSON
-// dizisine ekler. Ayrı bir RAM kataloğu tutmak yerine bu bilgi istek üzerine (bu
-// fonksiyon çağrıldığında) device.json'dan taze okunuyor.
-static void add_local_switches_to_catalog(cJSON *arr)
-{
-    const char *name1="/config/device.json";
-    if (!disk.file_search(name1)) return;
-
-    int fsize = disk.file_size(name1);
-    char *buf = (char *) malloc(fsize+5);
-    if (buf==NULL) return;
-    FILE *fd = fopen(name1, "r");
-    if (fd==NULL) { free(buf); return; }
-    fread(buf, fsize, 1, fd);
-    fclose(fd);
-
-    DynamicJsonDocument doc(fsize+5);
-    DeserializationError error = deserializeJson(doc, buf);
-    free(buf);
-    if (error) return;
-
-    for (JsonObject dev : doc["hardware_devices"].as<JsonArray>()) {
-        for (JsonObject fn : dev["functions"].as<JsonArray>()) {
-            const char *ftype = fn["f_type"];
-            if (ftype==nullptr || strcmp(ftype,"ANAHTAR")!=0) continue;
-
-            cJSON *Lm = cJSON_CreateObject();
-            cJSON_AddItemToObject(Lm, "chn", cJSON_CreateNumber(10));
-            cJSON_AddItemToObject(Lm, "adr", cJSON_CreateNumber((int)fn["f_id"]));
-            cJSON_AddItemToObject(Lm, "iadr", cJSON_CreateNumber(0));
-            cJSON_AddItemToObject(Lm, "type", cJSON_CreateNumber(INSTANCE_TYPE_BUTTON));
-            // DALI'deki "act" (ins_active) karşılığı olarak is_assigned kullanılıyor —
-            // ikisi de kabaca "zaten kullanımda mı" anlamına geliyor.
-            cJSON_AddItemToObject(Lm, "act", cJSON_CreateNumber((bool)fn["is_assigned"] ? 1 : 0));
-            cJSON_AddItemToArray(arr, Lm);
-        }
-    }
-}
-
 void instance_intro(pck_t *pck)
 {
     cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "ins_intro");
-    cJSON *scn = instance.instance_intro(); // DALI kayıtları
-    add_local_switches_to_catalog(scn);     // + yerel anahtarlar
+    cJSON *scn = cJSON_CreateArray();
+    instance.instance_intro(scn);  // DALI kayıtları
+    instanceL.instance_intro(scn); // Yerel kayıtlar (device.json ile boot'ta senkronize edilir, bkz. Local_Device_Read)
     cJSON_AddItemToObject(pay, "scn", scn);
     send_AK(pay,pck);
 }
@@ -1642,6 +1608,10 @@ void command_save_dev(cJSON *payload, pck_t *pck, bool is_mqtt)
 
 uint8_t anahtar_onoff(uint8_t onoff, uint8_t adr, uint8_t kanal, uint8_t ins)
 {
+    // Yerel (kanal=10) instance'lar için fiziksel DALI hattı yok — doğrulama
+    // sorgusu göndermeden istenen değeri doğrudan kabul et.
+    if (kanal==10) return onoff;
+
     //Instance cihaz üzerinden kapatır veya açar
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "com", "query");
@@ -1705,20 +1675,15 @@ void command_get_instance(cJSON *payload, pck_t *pck, bool is_mqtt)
 
 void command_set_instance(cJSON *payload, pck_t *pck, bool is_mqtt)
 {
-    // NOT: Buton (INSTANCE_TYPE_BUTTON) için hedef/davranış artık burada değil,
-    // ilgili lambanın kendi gear_t.triggers[]'ında tutuluyor (eskiden cmtype/pro).
-    // Termostat (INSTANCE_TYPE_TEMPERATURE) ise olay-tetiklemeli değil, kendi
-    // kendine sürekli değerlendirip kendi hedefini kontrol ettiği için hedefi
-    // (cmadr/ins_kanal) hâlâ instance kaydının kendisinde tutuluyor.
     uint8_t adr = 0, ins = 0, kan = 0xff, act=0xff;
 
     JSON_getint(payload, "adr", &adr); //Adres
     JSON_getint(payload, "ins", &ins); //Instance
     JSON_getint(payload, "kanal", &kan); //Kanal
 
-    //Instance Oku (katalog kaydı)
+    //Instance Oku (katalog kaydı) — yoksa (örn. henüz set edilmemiş yerel anahtar) ESP_ERR_NOT_FOUND döner
     instance_t fileins = {};
-    instance.get_instance(kan, adr, ins, &fileins);
+    esp_err_t found = pick_instance(kan).get_instance(kan, adr, ins, &fileins);
     fileins.channel = kan;
     fileins.dev_addr = adr;
     fileins.ins_addr = ins;
@@ -1726,9 +1691,19 @@ void command_set_instance(cJSON *payload, pck_t *pck, bool is_mqtt)
     uint8_t typ=0xff;
     JSON_getint(payload, "type", &typ); //Instance tipi (buton/ısı/hareket) - opsiyonel
     if (typ!=0xff) fileins.type = typ;
+    else if (found!=ESP_OK && kan==10) fileins.type = INSTANCE_TYPE_BUTTON; // yeni yerel kayıt, tip belirtilmedi
 
-    JSON_getint(payload, "cmadr", &fileins.com_addr);      //Termostat hedef adresi (opsiyonel)
-    JSON_getint(payload, "ins_kanal", &fileins.lamp_channel); //Termostat hedef kanalı (opsiyonel)
+    uint8_t cmtype=0xff;
+    JSON_getint(payload, "cmtype", &cmtype); //Hedef türü: lamba/grup/senaryo/anahtar (opsiyonel)
+    if (cmtype!=0xff) fileins.com = (instance_command_t)cmtype;
+
+    uint8_t pro=0xff;
+    JSON_getint(payload, "pro", &pro); //Hedefe uygulanacak eylem (opsiyonel)
+    if (pro!=0xff) fileins.process = (instance_process_type_t)pro;
+
+    JSON_getint(payload, "cmadr", &fileins.com_addr);      //Hedef adresi (opsiyonel)
+    JSON_getint(payload, "ins_kanal", &fileins.lamp_channel); //Hedef kanalı (opsiyonel)
+    JSON_getint(payload, "tset", &fileins.temp_set); //MOTION: retrigger timer süresi (sn, opsiyonel)
 
     JSON_getint(payload, "act", &act); //Instance Aktif/Pasif
 
@@ -1738,7 +1713,7 @@ void command_set_instance(cJSON *payload, pck_t *pck, bool is_mqtt)
     if (act1>1) return;
 
     fileins.ins_active = act1;
-    instance.set_instance(kan, adr, ins, &fileins);
+    pick_instance(kan).set_instance(kan, adr, ins, &fileins);
 
     cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "set_instance");
@@ -1747,8 +1722,11 @@ void command_set_instance(cJSON *payload, pck_t *pck, bool is_mqtt)
     cJSON_AddItemToObject(pay, "ins", cJSON_CreateNumber(fileins.ins_addr));
     cJSON_AddItemToObject(pay, "type", cJSON_CreateNumber(fileins.type));
     cJSON_AddItemToObject(pay, "act", cJSON_CreateNumber(fileins.ins_active));
+    cJSON_AddItemToObject(pay, "cmtype", cJSON_CreateNumber(fileins.com));
+    cJSON_AddItemToObject(pay, "pro", cJSON_CreateNumber(fileins.process));
     cJSON_AddItemToObject(pay, "cmadr", cJSON_CreateNumber(fileins.com_addr));
     cJSON_AddItemToObject(pay, "ins_kanal", cJSON_CreateNumber(fileins.lamp_channel));
+    cJSON_AddItemToObject(pay, "tset", cJSON_CreateNumber(fileins.temp_set));
     send_AK(pay,pck,is_mqtt);
 
 }
@@ -1762,7 +1740,12 @@ void command_query_instance(cJSON *payload, pck_t *pck, bool is_mqtt)
     JSON_getint(payload, "kanal", &kan);
 
     instance_t fileins = {};
-    instance.get_instance(kan, adr, ins, &fileins);
+    pick_instance(kan).get_instance(kan, adr, ins, &fileins);
+    // Kayıt henüz katalogda yoksa (örn. hiç set edilmemiş yerel anahtar) fileins sıfır
+    // kalır — sorgulanan gerçek adresi yine de yansıt ki app doğru kaydı eşleştirebilsin.
+    fileins.channel = kan;
+    fileins.dev_addr = adr;
+    fileins.ins_addr = ins;
 
     cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "set_instance");
@@ -1771,6 +1754,8 @@ void command_query_instance(cJSON *payload, pck_t *pck, bool is_mqtt)
     cJSON_AddItemToObject(pay, "ins", cJSON_CreateNumber(fileins.ins_addr));
     cJSON_AddItemToObject(pay, "type", cJSON_CreateNumber(fileins.type));
     cJSON_AddItemToObject(pay, "act", cJSON_CreateNumber(fileins.ins_active));
+    cJSON_AddItemToObject(pay, "cmtype", cJSON_CreateNumber(fileins.com));
+    cJSON_AddItemToObject(pay, "pro", cJSON_CreateNumber(fileins.process));
     cJSON_AddItemToObject(pay, "cmadr", cJSON_CreateNumber(fileins.com_addr));
     cJSON_AddItemToObject(pay, "ins_kanal", cJSON_CreateNumber(fileins.lamp_channel));
     send_AK(pay,pck,is_mqtt);
@@ -1806,7 +1791,7 @@ void command_set_ins_filter(cJSON *payload, pck_t *pck, bool is_mqtt)
     JSON_getint(payload, "val", &val);
 
     instance_t fileins = {};
-    instance.get_instance(kan, adr, ins, &fileins);
+    pick_instance(kan).get_instance(kan, adr, ins, &fileins);
     fileins.filter = val;
 
         if (instance_filter_set(adr,kan,ins,fileins.filter)!=1)
@@ -1819,7 +1804,7 @@ void command_set_ins_filter(cJSON *payload, pck_t *pck, bool is_mqtt)
     cJSON_AddItemToObject(pay, "ins", cJSON_CreateNumber(fileins.ins_addr));
     cJSON_AddItemToObject(pay, "filter", cJSON_CreateNumber(fileins.filter));
     send_AK(pay,pck,is_mqtt);
-    instance.set_instance(kan, adr, ins, &fileins);
+    pick_instance(kan).set_instance(kan, adr, ins, &fileins);
 }
 
 void command_query_ins_filter(cJSON *payload, pck_t *pck, bool is_mqtt)
@@ -2025,7 +2010,7 @@ void command_get_temp(cJSON *payload, pck_t *pck, bool is_mqtt=false)
     JSON_getint(payload, "kanal", &kan);
 
     instance_t ins = {};
-    esp_err_t kk= instance.get_instance(kan,adr,ains, &ins);
+    esp_err_t kk= pick_instance(kan).get_instance(kan,adr,ains, &ins);
     if (kk==ESP_OK) {
         cJSON *pay = cJSON_CreateObject();
 
@@ -2058,11 +2043,11 @@ void command_set_temp(cJSON *payload, pck_t *pck, bool is_mqtt=false)
     JSON_getint(payload, "set", &set);
 
     instance_t ins = {};
-    esp_err_t kk= instance.get_instance(kan,adr,ains, &ins);
+    esp_err_t kk= pick_instance(kan).get_instance(kan,adr,ains, &ins);
     if (kk==ESP_OK) {
         ins.temp_set = set;
         temp_role_degerlendir(&ins);
-        instance.set_instance(kan,adr,ains, &ins);
+        pick_instance(kan).set_instance(kan,adr,ains, &ins);
         cJSON *pay = cJSON_CreateObject();                      
         fill_ins(&ins,pay);
         send_AK(pay,pck, is_mqtt);
@@ -2078,11 +2063,11 @@ void command_set_tmode(cJSON *payload, pck_t *pck, bool is_mqtt=false)
     JSON_getint(payload, "mode", &set);
 
     instance_t ins = {};
-    esp_err_t kk= instance.get_instance(kan,adr,ains, &ins);
+    esp_err_t kk= pick_instance(kan).get_instance(kan,adr,ains, &ins);
     if (kk==ESP_OK) {
         ins.temp_type = set;
         temp_role_degerlendir(&ins);
-        instance.set_instance(kan,adr,ains, &ins);
+        pick_instance(kan).set_instance(kan,adr,ains, &ins);
         cJSON *pay = cJSON_CreateObject();                      
         fill_ins(&ins,pay);
         send_AK(pay,pck, is_mqtt);

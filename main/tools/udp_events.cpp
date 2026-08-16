@@ -234,6 +234,7 @@ void udp_worker_task(void *pvParameters) {
                 
                 if (strcmp((const char *)msg->payload,"list_ins")==0) {
                     instance.list_instance();
+                    instanceL.list_instance();
                 }
                 if (strcmp((const char *)msg->payload,"delete_ins")==0) {
                     instance.clear_file();

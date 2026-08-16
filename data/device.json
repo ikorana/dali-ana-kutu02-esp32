@@ -17,7 +17,7 @@
           "f_id": 2,
           "f_type": "ROLE",
           "hw_pin": 2,
-          "is_assigned": true
+          "is_assigned": false
         },
         {
           "f_id": 3,
@@ -29,7 +29,31 @@
           "f_id": 4,
           "f_type": "ROLE",
           "hw_pin": 4,
-          "is_assigned": true
+          "is_assigned": false
+        },
+        {
+          "f_id": 150,
+          "f_type": "SENSOR",
+          "hw_pin": 1,
+          "is_assigned": false
+        },
+        {
+          "f_id": 151,
+          "f_type": "SENSOR",
+          "hw_pin": 2,
+          "is_assigned": false
+        },
+        {
+          "f_id": 152,
+          "f_type": "SENSOR",
+          "hw_pin": 3,
+          "is_assigned": false
+        },
+        {
+          "f_id": 153,
+          "f_type": "SENSOR",
+          "hw_pin": 4,
+          "is_assigned": false
         }
       ],
       "is_addressed": false
@@ -37,7 +61,7 @@
     {
       "device_id": 2,
       "device_model": "5li_role",
-      "device_name": "Ek Röle 1",
+      "device_name": "Role 1",
       "functions": [
         {
           "f_id": 5,
@@ -67,238 +91,34 @@
           "f_id": 9,
           "f_type": "ROLE",
           "hw_pin": 5,
+          "is_assigned": false
+        },
+        {
+          "f_id": 154,
+          "f_type": "ANAHTAR",
+          "hw_pin": 6,
           "is_assigned": true
         },
         {
-          "f_id": 5,
+          "f_id": 155,
           "f_type": "SWITCH",
-          "hw_pin": 6,
-          "is_assigned": true
-        },
-        {
-          "f_id": 6,
-          "f_type": "SWITCH",
-          "hw_pin": 7,
-          "is_assigned": true
-        },
-        {
-          "f_id": 7,
-          "f_type": "ANAHTAR",
-          "hw_pin": 8,
-          "is_assigned": true
-        },
-        {
-          "f_id": 8,
-          "f_type": "ANAHTAR",
-          "hw_pin": 9,
-          "is_assigned": false
-        },
-        {
-          "f_id": 9,
-          "f_type": "ANAHTAR",
-          "hw_pin": 10,
-          "is_assigned": false
-        }
-      ],
-      "is_addressed": true
-    },
-    {
-      "device_id": 3,
-      "device_model": "5li_role",
-      "device_name": "Ek Röle 2",
-      "functions": [
-        {
-          "f_id": 10,
-          "f_type": "ROLE",
-          "hw_pin": 1,
-          "is_assigned": true
-        },
-        {
-          "f_id": 11,
-          "f_type": "ROLE",
-          "hw_pin": 2,
-          "is_assigned": true
-        },
-        {
-          "f_id": 12,
-          "f_type": "ROLE",
-          "hw_pin": 3,
-          "is_assigned": true
-        },
-        {
-          "f_id": 13,
-          "f_type": "ROLE",
-          "hw_pin": 4,
-          "is_assigned": true
-        },
-        {
-          "f_id": 14,
-          "f_type": "ROLE",
-          "hw_pin": 5,
-          "is_assigned": true
-        },
-        {
-          "f_id": 10,
-          "f_type": "ANAHTAR",
-          "hw_pin": 6,
-          "is_assigned": true
-        },
-        {
-          "f_id": 11,
-          "f_type": "ANAHTAR",
           "hw_pin": 7,
           "is_assigned": false
         },
         {
-          "f_id": 12,
+          "f_id": 156,
           "f_type": "ANAHTAR",
           "hw_pin": 8,
           "is_assigned": false
         },
         {
-          "f_id": 13,
-          "f_type": "ANAHTAR",
+          "f_id": 157,
+          "f_type": "SENSOR",
           "hw_pin": 9,
           "is_assigned": false
         },
         {
-          "f_id": 14,
-          "f_type": "ANAHTAR",
-          "hw_pin": 10,
-          "is_assigned": false
-        }
-      ],
-      "is_addressed": true
-    },
-    {
-      "device_id": 4,
-      "device_model": "5li_role",
-      "device_name": "Ek Röle 3",
-      "functions": [
-        {
-          "f_id": 15,
-          "f_type": "ROLE",
-          "hw_pin": 1,
-          "is_assigned": true
-        },
-        {
-          "f_id": 16,
-          "f_type": "ROLE",
-          "hw_pin": 2,
-          "is_assigned": true
-        },
-        {
-          "f_id": 17,
-          "f_type": "ROLE",
-          "hw_pin": 3,
-          "is_assigned": true
-        },
-        {
-          "f_id": 18,
-          "f_type": "ROLE",
-          "hw_pin": 4,
-          "is_assigned": true
-        },
-        {
-          "f_id": 19,
-          "f_type": "ROLE",
-          "hw_pin": 5,
-          "is_assigned": true
-        },
-        {
-          "f_id": 15,
-          "f_type": "SWITCH",
-          "hw_pin": 6,
-          "is_assigned": true
-        },
-        {
-          "f_id": 16,
-          "f_type": "ANAHTAR",
-          "hw_pin": 7,
-          "is_assigned": true
-        },
-        {
-          "f_id": 17,
-          "f_type": "ANAHTAR",
-          "hw_pin": 8,
-          "is_assigned": false
-        },
-        {
-          "f_id": 18,
-          "f_type": "ANAHTAR",
-          "hw_pin": 9,
-          "is_assigned": false
-        },
-        {
-          "f_id": 19,
-          "f_type": "ANAHTAR",
-          "hw_pin": 10,
-          "is_assigned": false
-        }
-      ],
-      "is_addressed": true
-    },
-    {
-      "device_id": 5,
-      "device_model": "5li_role",
-      "device_name": "Ek Röle 4",
-      "functions": [
-        {
-          "f_id": 20,
-          "f_type": "ROLE",
-          "hw_pin": 1,
-          "is_assigned": true
-        },
-        {
-          "f_id": 21,
-          "f_type": "ROLE",
-          "hw_pin": 2,
-          "is_assigned": false
-        },
-        {
-          "f_id": 22,
-          "f_type": "ROLE",
-          "hw_pin": 3,
-          "is_assigned": false
-        },
-        {
-          "f_id": 23,
-          "f_type": "ROLE",
-          "hw_pin": 4,
-          "is_assigned": false
-        },
-        {
-          "f_id": 24,
-          "f_type": "ROLE",
-          "hw_pin": 5,
-          "is_assigned": false
-        },
-        {
-          "f_id": 20,
-          "f_type": "ANAHTAR",
-          "hw_pin": 6,
-          "is_assigned": false
-        },
-        {
-          "f_id": 21,
-          "f_type": "ANAHTAR",
-          "hw_pin": 7,
-          "is_assigned": false
-        },
-        {
-          "f_id": 22,
-          "f_type": "ANAHTAR",
-          "hw_pin": 8,
-          "is_assigned": false
-        },
-        {
-          "f_id": 23,
-          "f_type": "ANAHTAR",
-          "hw_pin": 9,
-          "is_assigned": false
-        },
-        {
-          "f_id": 24,
+          "f_id": 158,
           "f_type": "ANAHTAR",
           "hw_pin": 10,
           "is_assigned": false
@@ -309,85 +129,11 @@
   ],
   "actions": [
     {
-      "action_id": 1,
-      "channel": 10,
-      "action_type": "relay",
-      "action_name": "Röle 1",
-      "mapped_outputs": [
-        {
-          "type": "ROLE",
-          "id": 5,
-          "desc": "output_1"
-        }
-      ],
-      "mapped_inputs": [
-        {
-          "type": "SWITCH",
-          "id": 5,
-          "desc": "input_1",
-          "active": 1
-        }
-      ]
-    },
-    {
-      "action_id": 2,
-      "channel": 10,
-      "action_type": "blind",
-      "action_name": "Perde",
-      "time": 15,
-      "mapped_outputs": [
-        {
-          "type": "ROLE",
-          "id": 6,
-          "desc": "up"
-        },
-        {
-          "type": "ROLE",
-          "id": 7,
-          "desc": "down"
-        }
-      ],
-      "mapped_inputs": [
-        {
-          "type": "SWITCH",
-          "id": 6,
-          "desc": "up",
-          "active": 1
-        },
-        {
-          "type": "ANAHTAR",
-          "id": 7,
-          "desc": "down",
-          "active": 1
-        }
-      ]
-    },
-    {
-      "action_id": 3,
-      "channel": 10,
-      "action_type": "relay",
-      "action_name": "Röle 2",
-      "mapped_outputs": [
-        {
-          "type": "ROLE",
-          "id": 10,
-          "desc": "output_1"
-        }
-      ],
-      "mapped_inputs": [
-        {
-          "type": "ANAHTAR",
-          "id": 10,
-          "desc": "input_1",
-          "active": 1
-        }
-      ]
-    },
-    {
       "action_id": 4,
       "channel": 10,
       "action_type": "energy",
       "action_name": "Kontaktör",
+      "action_room": 1,
       "mapped_outputs": [
         {
           "type": "ROLE",
@@ -395,13 +141,18 @@
           "desc": "output_1"
         }
       ],
-      "mapped_inputs": []
+      "mapped_inputs": [],
+      "event_links": [],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
     },
     {
       "action_id": 6,
       "channel": 10,
       "action_type": "elevator",
       "action_name": "Asansör",
+      "action_room": 1,
       "time": 5,
       "mapped_outputs": [
         {
@@ -410,176 +161,151 @@
           "desc": "output_1"
         }
       ],
-      "mapped_inputs": []
+      "mapped_inputs": [],
+      "event_links": [],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
     },
     {
       "action_id": 7,
       "channel": 10,
-      "action_type": "blind",
-      "action_name": "salon perde",
-      "time": 15,
+      "action_type": "relaylamp",
+      "action_name": "Salon Lamba 1",
+      "action_room": 2,
       "mapped_outputs": [
         {
           "type": "ROLE",
-          "id": 15,
-          "desc": "up"
-        },
-        {
-          "type": "ROLE",
-          "id": 16,
-          "desc": "down"
+          "id": 5,
+          "desc": "out_1"
         }
       ],
       "mapped_inputs": [
         {
-          "type": "SWITCH",
-          "id": 15,
-          "desc": "up",
-          "active": 1
-        },
-        {
           "type": "ANAHTAR",
-          "id": 16,
-          "desc": "down",
+          "id": 154,
+          "desc": "in_1",
           "active": 1
         }
-      ]
+      ],
+      "event_links": [],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
     },
     {
       "action_id": 8,
       "channel": 10,
-      "action_type": "water",
-      "action_name": "Su Valfi",
+      "action_type": "relaylamp",
+      "action_name": "Salon Lamba 2",
+      "action_room": 2,
       "mapped_outputs": [
         {
           "type": "ROLE",
-          "id": 2,
-          "desc": "output_1"
+          "id": 6,
+          "desc": "out_1"
         }
       ],
-      "mapped_inputs": []
+      "mapped_inputs": [],
+      "event_links": [],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
     },
     {
       "action_id": 9,
       "channel": 10,
-      "action_type": "gas",
-      "action_name": "Gaz",
-      "time": 3,
+      "action_type": "relaylamp",
+      "action_name": "Mutfak Lamba",
+      "action_room": 3,
       "mapped_outputs": [
         {
           "type": "ROLE",
-          "id": 8,
-          "desc": "output_1"
+          "id": 7,
+          "desc": "out_1"
         }
       ],
-      "mapped_inputs": []
+      "mapped_inputs": [],
+      "event_links": [],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
     },
     {
       "action_id": 10,
       "channel": 10,
-      "action_type": "mwater",
-      "action_name": "su2",
-      "time": 15,
-      "mapped_outputs": [
-        {
-          "type": "ROLE",
-          "id": 11,
-          "desc": "on"
-        },
-        {
-          "type": "ROLE",
-          "id": 12,
-          "desc": "off"
-        }
-      ],
-      "mapped_inputs": []
-    },
-    {
-      "action_id": 12,
-      "channel": 10,
-      "action_type": "socket",
-      "action_name": "Priz 1",
-      "mapped_outputs": [
-        {
-          "type": "ROLE",
-          "id": 19,
-          "desc": "output_1"
-        }
-      ],
-      "mapped_inputs": []
-    },
-    {
-      "action_id": 14,
-      "channel": 10,
-      "action_type": "relay",
-      "action_name": "Salon Lamba 1",
-      "mapped_outputs": [
-        {
-          "type": "ROLE",
-          "id": 4,
-          "desc": "output_1"
-        },
-        {
-          "type": "ROLE",
-          "id": 17,
-          "desc": "output_2"
-        }
-      ],
-      "mapped_inputs": []
-    },
-    {
-      "action_id": 15,
-      "channel": 10,
-      "action_type": "door",
-      "action_name": "Ana KAPI",
-      "time": 5,
-      "mapped_outputs": [
-        {
-          "type": "ROLE",
-          "id": 13,
-          "desc": "on"
-        },
-        {
-          "type": "ROLE",
-          "id": 14,
-          "desc": "off"
-        }
-      ],
-      "mapped_inputs": []
-    },
-    {
-      "action_id": 16,
-      "channel": 10,
-      "action_type": "garage",
-      "action_name": "Garaj Kapısı",
-      "time": 15,
-      "mapped_outputs": [
-        {
-          "type": "ROLE",
-          "id": 9,
-          "desc": "up"
-        },
-        {
-          "type": "ROLE",
-          "id": 18,
-          "desc": "down"
-        }
-      ],
-      "mapped_inputs": []
-    },
-    {
-      "action_id": 17,
-      "channel": 10,
       "action_type": "relaylamp",
-      "action_name": "RLamba",
+      "action_name": "Koridor lamba",
+      "action_room": 4,
       "mapped_outputs": [
         {
           "type": "ROLE",
-          "id": 20,
-          "desc": "output_1"
+          "id": 8,
+          "desc": "out_1"
         }
       ],
-      "mapped_inputs": []
+      "mapped_inputs": [],
+      "event_links": [],
+      "x": 0.0,
+      "y": 0.0,
+      "isPlaced": false
+    }
+  ],
+  "events": [
+    {
+      "type": "SUNSET_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "SUNRISE_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "ALARM_STATE_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "RAIN_DETECTED_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "PERIMETER_BREACH_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "WIND_STRENGTH_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "EMERGENCY_OFF_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "DETERENT_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "HEAT_BOOST_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "CLOCK_UPDATE_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
+    },
+    {
+      "type": "MOVEMENT_EVENT",
+      "source_device_id": 1,
+      "category": "Genel"
     }
   ],
   "controller_info": {

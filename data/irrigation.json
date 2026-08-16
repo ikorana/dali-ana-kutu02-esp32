@@ -1,0 +1,11 @@
+{
+  "system_id": "GARDEN_01",
+  "name": "Bahçe Sulama Sistemi",
+  "status": "enabled",
+  "smart": 0,
+  "hardware": {
+    "segments": []
+  },
+  "schedules": [],
+  "event_links": []
+}
