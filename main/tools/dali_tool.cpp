@@ -92,14 +92,16 @@ void dali_channel_onoff(uint8_t chn, uint8_t stat)
 
 uint8_t dali_get_channel_onoff(uint8_t chn)
 {
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
+    xQueueReset(searchQueue);
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root,"com","get_DALI");
     cJSON_AddNumberToObject(root,"kanal",chn);
     send_STM(root);
     cJSON_Delete(root);
     searchMessage_t msg = {};
-    xQueueReset(searchQueue);
     xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(5000));
+    xSemaphoreGive(searchQueueMutex);
     return msg.name[0];
 }
 
@@ -129,6 +131,7 @@ void led_onoff(cJSON *payload, pck_t *pck, bool is_mqtt)
 
 
 int send_wifi_query(uint32_t cmd, uint8_t *ret, uint16_t tm) {
+    xSemaphoreTake(wsearchQueueMutex, portMAX_DELAY);
     xQueueReset(wsearchQueue);
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root,"com","query");
@@ -143,16 +146,18 @@ int send_wifi_query(uint32_t cmd, uint8_t *ret, uint16_t tm) {
 
     searchMessage_t msg = {};
     TickType_t xTicksToWait = pdMS_TO_TICKS(tm);
-    if (xQueueReceive(wsearchQueue, &msg, xTicksToWait) == pdPASS) {
+    BaseType_t got = xQueueReceive(wsearchQueue, &msg, xTicksToWait);
+    xSemaphoreGive(wsearchQueueMutex);
+    if (got == pdPASS) {
         ret[0] = msg.name[0];
         ret[1] = msg.name[1];
         ret[2] = msg.name[2];
         ret[3] = msg.name[3];
         ret[4] = msg.name[4];
         ret[5] = msg.name[5];
-        return 1;                       
+        return 1;
         }
-    return -1;    
+    return -1;
 }
 
 void wifi_search_device(void *pvParameters) {
@@ -258,6 +263,10 @@ void search_device(void *pvParameters) {
     if (cable==3) {asprintf(&txt,"Kanal 3 Arama Başlatıldı");}
     ESP_LOGI("CABLE_CONTROL","%s",txt);
 
+    // Arama boyunca (birden çok cihaz mesajı gelene kadar) searchQueue'yu tek
+    // başımıza kullanıyoruz; başka bir sorgu bu sırada devreye giremesin.
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
+
     if (cable!=0) {
         cJSON *root = cJSON_CreateObject();
         cJSON_AddStringToObject(root,"com","search");
@@ -310,6 +319,7 @@ void search_device(void *pvParameters) {
                 cJSON_AddStringToObject(pay, "txt", txt);
                 send_AK(pay,&param->pck);
                 free(txt);
+                xSemaphoreGive(searchQueueMutex);
                 don=false;
                 break;  // Döngüden çık ve task'ı bitir veya bekleme modunu kapat
             }
@@ -477,6 +487,7 @@ void command_get_single(cJSON *payload, pck_t *pck, uint8_t cmd, const char *txt
     cJSON_AddNumberToObject(root, "hexcom", create_command(adr,false,false,cmd));
     cJSON_AddNumberToObject(root, "kanal",kanal);
     cJSON_AddNumberToObject(root, "bit",16);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     if (kanal>3) send_STM(root);
     if (kanal==0) send_wifi(root);
     cJSON_Delete(root);
@@ -484,7 +495,8 @@ void command_get_single(cJSON *payload, pck_t *pck, uint8_t cmd, const char *txt
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
     xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(5000));
-    cJSON *pay = cJSON_CreateObject();  
+    xSemaphoreGive(searchQueueMutex);
+    cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", txt);
     cJSON_AddNumberToObject(pay,"adres",adr);
     cJSON_AddNumberToObject(pay,"kanal",kanal);
@@ -500,6 +512,7 @@ void command_modbus_adr(cJSON *payload, pck_t *pck, bool is_mqtt=false)
     JSON_getint(payload,"first_out", &outp);
     JSON_getint(payload,"first_input", &inp);
 
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     xQueueReset(searchQueue);
 
     cJSON *root = cJSON_CreateObject();
@@ -510,10 +523,11 @@ void command_modbus_adr(cJSON *payload, pck_t *pck, bool is_mqtt=false)
     send_STM(root);
     cJSON_Delete(root);
 
-    searchMessage_t msg = {}; 
+    searchMessage_t msg = {};
     xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(5000));
+    xSemaphoreGive(searchQueueMutex);
 
-    cJSON *pay = cJSON_CreateObject();  
+    cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "modbus_adr");
     cJSON_AddNumberToObject(pay,"id",msg.name[0]);
     cJSON_AddNumberToObject(pay,"first_out",msg.name[1]);
@@ -526,6 +540,7 @@ void command_modbus_getadr(cJSON *payload, pck_t *pck, bool is_mqtt=false)
     uint8_t id = 0;//, inp = 255;//, outp = 0xff;
     JSON_getint(payload,"id", &id);
 
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     xQueueReset(searchQueue);
 
     cJSON *root = cJSON_CreateObject();
@@ -534,10 +549,11 @@ void command_modbus_getadr(cJSON *payload, pck_t *pck, bool is_mqtt=false)
     send_STM(root);
     cJSON_Delete(root);
 
-    searchMessage_t msg = {}; 
+    searchMessage_t msg = {};
     xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(5000));
+    xSemaphoreGive(searchQueueMutex);
 
-    cJSON *pay = cJSON_CreateObject();  
+    cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "modbus_adr");
     cJSON_AddNumberToObject(pay,"id",msg.name[0]);
     cJSON_AddNumberToObject(pay,"first_out",msg.name[1]);
@@ -597,6 +613,7 @@ void command_modbus_ping(cJSON *payload, pck_t *pck, bool is_mqtt=false)
 {
     uint8_t id = 0;
     JSON_getint(payload,"id", &id);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     xQueueReset(searchQueue);
 
     cJSON *root = cJSON_CreateObject();
@@ -604,10 +621,11 @@ void command_modbus_ping(cJSON *payload, pck_t *pck, bool is_mqtt=false)
     cJSON_AddNumberToObject(root, "id", id);
     send_STM(root);
     cJSON_Delete(root);
-    searchMessage_t msg = {}; 
+    searchMessage_t msg = {};
     xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(5000));
+    xSemaphoreGive(searchQueueMutex);
 
-    cJSON *pay = cJSON_CreateObject();  
+    cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "pong");
     cJSON_AddNumberToObject(pay,"id",msg.name[0]);
     send_AK(pay,pck,is_mqtt);
@@ -620,9 +638,10 @@ void command_pin(cJSON *payload, pck_t *pck, bool is_mqtt=false)
     JSON_getint(payload,"state", &state);
 
     reliableUartManager.send_role_command(myUart, id,state);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     xQueueReset(searchQueue);
-   
-}  
+    xSemaphoreGive(searchQueueMutex);
+}
 
 void command_modbus_identfy(cJSON *payload, pck_t *pck, bool is_mqtt=false)
 {
@@ -650,6 +669,7 @@ void command_set_efade(cJSON *payload, pck_t *pck,bool is_mqtt=false)
     cJSON_AddNumberToObject(root, "bit",16);
     cJSON_AddNumberToObject(root, "special",6);
     cJSON_AddNumberToObject(root, "val",val);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     if(kanal>0) send_STM(root);
     if (kanal==0) send_wifi(root);
     cJSON_Delete(root);
@@ -657,8 +677,9 @@ void command_set_efade(cJSON *payload, pck_t *pck,bool is_mqtt=false)
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
     xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(5000));
+    xSemaphoreGive(searchQueueMutex);
 
-    cJSON *pay = cJSON_CreateObject();  
+    cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "set_efade");
     cJSON_AddNumberToObject(pay,"adres",adr);
     cJSON_AddNumberToObject(pay,"kanal",kanal);
@@ -680,6 +701,7 @@ void command_set_fade(cJSON *payload, pck_t *pck,bool is_mqtt=false)
     cJSON_AddNumberToObject(root, "bit",16);
     cJSON_AddNumberToObject(root, "special",5);
     cJSON_AddNumberToObject(root, "val",val);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     if (kanal>0) send_STM(root);
     if (kanal==0) send_wifi(root);
     cJSON_Delete(root);
@@ -687,8 +709,9 @@ void command_set_fade(cJSON *payload, pck_t *pck,bool is_mqtt=false)
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
     xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(5000));
+    xSemaphoreGive(searchQueueMutex);
 
-    cJSON *pay = cJSON_CreateObject();  
+    cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "set_fade");
     cJSON_AddNumberToObject(pay,"adres",adr);
     cJSON_AddNumberToObject(pay,"kanal",kanal);
@@ -703,6 +726,7 @@ void command_get_qkanal(cJSON *payload, pck_t *pck, bool is_mqtt)
     JSON_getint(payload,"adres", &adr);
     JSON_getint(payload,"kanal", &kanal);
 
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     char *mm;
     asprintf(&mm,"%04X:10:01:%02d#",create_command(adr,false,false,QUERY_CHN_FEATURE),kanal);
     myUart->send(mm);
@@ -711,8 +735,9 @@ void command_get_qkanal(cJSON *payload, pck_t *pck, bool is_mqtt)
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
     xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(3000));
-    
-    cJSON *pay = cJSON_CreateObject();  
+    xSemaphoreGive(searchQueueMutex);
+
+    cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "get_qkanal");
     cJSON_AddNumberToObject(pay,"adres",adr);
     cJSON_AddNumberToObject(pay,"kanal",kanal);
@@ -767,6 +792,7 @@ void command_get_color(cJSON *payload, pck_t *pck, bool is_mqtt)
     JSON_getint(payload,"kanal", &kanal);
     JSON_getint(payload,"type", &typ);
 
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     char *mm;
     asprintf(&mm,"%04X:10:0B:%02d:%02X#",create_command(adr,false,false,QUERY_COLOR_VALUE),kanal,typ);
     myUart->send(mm);
@@ -775,8 +801,9 @@ void command_get_color(cJSON *payload, pck_t *pck, bool is_mqtt)
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
     xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(5000));
-    
-    cJSON *pay = cJSON_CreateObject();  
+    xSemaphoreGive(searchQueueMutex);
+
+    cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "get_color");
     cJSON_AddNumberToObject(pay,"adres",adr);
     cJSON_AddNumberToObject(pay,"kanal",kanal);
@@ -825,6 +852,7 @@ void command_set_level(cJSON *payload, pck_t *pck, uint8_t cmd, const char *txt,
     cJSON_AddNumberToObject(root, "bit",16);
     cJSON_AddNumberToObject(root, "special",4);
     cJSON_AddNumberToObject(root, "val",val);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     if (kanal>0) send_STM(root);
     if (kanal==0) send_wifi(root);
     cJSON_Delete(root);
@@ -832,14 +860,15 @@ void command_set_level(cJSON *payload, pck_t *pck, uint8_t cmd, const char *txt,
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
     xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(5000));
+    xSemaphoreGive(searchQueueMutex);
 
-    cJSON *pay = cJSON_CreateObject();  
+    cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", txt);
     cJSON_AddNumberToObject(pay,"adres",adr);
     cJSON_AddNumberToObject(pay,"kanal",kanal);
     cJSON_AddNumberToObject(pay,"val",msg.name[0]);
     send_AK(pay,pck,is_mqtt);
-}    
+}
 
 void command_get_detail(cJSON *payload, pck_t *pck,bool is_mqtt=false)
 {
@@ -852,6 +881,7 @@ void command_get_detail(cJSON *payload, pck_t *pck,bool is_mqtt=false)
     cJSON_AddNumberToObject(root, "kanal",kanal);
     cJSON_AddNumberToObject(root, "bit",16);
     cJSON_AddNumberToObject(root, "special",3);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     if (kanal>0) send_STM(root);
     if (kanal==0) send_wifi(root);
     cJSON_Delete(root);
@@ -859,7 +889,8 @@ void command_get_detail(cJSON *payload, pck_t *pck,bool is_mqtt=false)
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
     xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(3000));
-    cJSON *pay = cJSON_CreateObject();  
+    xSemaphoreGive(searchQueueMutex);
+    cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "get_detail");
     cJSON_AddNumberToObject(pay,"adres",adr);
     cJSON_AddNumberToObject(pay,"kanal",kanal);
@@ -884,6 +915,7 @@ uint8_t get_scn(uint8_t adr, uint8_t kanal, uint8_t scn)
     cJSON_AddNumberToObject(root, "hexcom", create_command(adr,false,false,cmd));
     cJSON_AddNumberToObject(root, "kanal",kanal);
     cJSON_AddNumberToObject(root, "bit",16);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     if (kanal>0) send_STM(root);
     if (kanal==0) send_wifi(root);
     cJSON_Delete(root);
@@ -891,6 +923,7 @@ uint8_t get_scn(uint8_t adr, uint8_t kanal, uint8_t scn)
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
     xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(3000));
+    xSemaphoreGive(searchQueueMutex);
     return msg.name[0];
 }
 
@@ -937,15 +970,17 @@ void command_set_scene(cJSON *payload, pck_t *pck,bool is_mqtt=false)
     cJSON_AddNumberToObject(root, "special",2);
     cJSON_AddNumberToObject(root, "scene",scn);
     cJSON_AddNumberToObject(root, "val",val);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     if (kanal>0) send_STM(root);
     if (kanal==0) send_wifi(root);
     cJSON_Delete(root);
-    
+
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
     xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(3000));
-    
-    cJSON *pay = cJSON_CreateObject();  
+    xSemaphoreGive(searchQueueMutex);
+
+    cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "scene_status");
     cJSON_AddNumberToObject(pay,"adres",adr);
     cJSON_AddNumberToObject(pay,"kanal",kanal);
@@ -1001,20 +1036,23 @@ int query_grp(uint8_t adr, uint8_t kanal, uint8_t *L, uint8_t *H)
     cJSON_AddNumberToObject(root, "kanal",kanal);
     cJSON_AddNumberToObject(root, "bit",16);
     cJSON_AddNumberToObject(root, "special",1);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     if (kanal>0) send_STM(root);
     if (kanal==0) send_wifi(root);
     cJSON_Delete(root);
 
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
-    if (xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(3000))==pdTRUE) {
+    BaseType_t got = xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(3000));
+    xSemaphoreGive(searchQueueMutex);
+    if (got==pdTRUE) {
         uint8_t LL=msg.name[0], HH=msg.name[1];
        *L=LL;
-       *H=HH; 
+       *H=HH;
        if (kanal==1) gear01.set_gurup(adr,LL,HH);
        if (kanal==2) gear02.set_gurup(adr,LL,HH);
        if (kanal==3) gear03.set_gurup(adr,LL,HH);
-         
+
     } else return -1;
     return 1;
 }
@@ -1081,11 +1119,12 @@ void command_get_level(cJSON *payload, pck_t *pck,bool is_mqtt=false)
     cJSON_AddNumberToObject(root, "kanal",kanal);
     cJSON_AddNumberToObject(root, "bit",16);
     bool cm = (kanal>0 && kanal<10);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     if (cm) send_STM(root);
     if (cm || kanal==0) send_wifi(root);
     if (kanal==10) {
-        //bu cihaz lokaldedir. adr üzerinden cihazı bulup komutu ona gönder 
-        for (Base_Device* cihaz : cihaz_listesi) 
+        //bu cihaz lokaldedir. adr üzerinden cihazı bulup komutu ona gönder
+        for (Base_Device* cihaz : cihaz_listesi)
         {
             if (cihaz->device_id==adr)
               {
@@ -1102,6 +1141,7 @@ void command_get_level(cJSON *payload, pck_t *pck,bool is_mqtt=false)
     } else {
         msg.name[0]=stt;
     }
+    xSemaphoreGive(searchQueueMutex);
    
     
    // printf("GET LEVEL %d\n",msg.name[0]);
@@ -1126,11 +1166,12 @@ void command_qstatus(cJSON *payload, pck_t *pck,bool is_mqtt=false)
     cJSON_AddNumberToObject(root, "kanal",kanal);
     cJSON_AddNumberToObject(root, "bit",16);
     bool cm = (kanal>0 && kanal<10);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     if (cm) send_STM(root);
     if (cm || kanal==0) send_wifi(root);
     if (kanal==10) {
-        //bu cihaz lokaldedir. adr üzerinden cihazı bulup komutu ona gönder 
-        for (Base_Device* cihaz : cihaz_listesi) 
+        //bu cihaz lokaldedir. adr üzerinden cihazı bulup komutu ona gönder
+        for (Base_Device* cihaz : cihaz_listesi)
         {
             if (cihaz->device_id==adr)
               {
@@ -1148,6 +1189,7 @@ void command_qstatus(cJSON *payload, pck_t *pck,bool is_mqtt=false)
     } else {
       msg.name[0]=stt;
     }
+    xSemaphoreGive(searchQueueMutex);
 
 
    // printf("QSTATUS %d\n",msg.name[0]);
@@ -1620,12 +1662,14 @@ uint8_t anahtar_onoff(uint8_t onoff, uint8_t adr, uint8_t kanal, uint8_t ins)
     cJSON_AddNumberToObject(root, "special",12);
     cJSON_AddNumberToObject(root, "par1",ins);
     cJSON_AddNumberToObject(root, "par2",onoff);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     send_STM(root);
     cJSON_Delete(root);
 
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
-    xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(3000)); 
+    xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(3000));
+    xSemaphoreGive(searchQueueMutex);
     return msg.name[0];
 }
 
@@ -1772,12 +1816,14 @@ uint8_t instance_filter_set(uint8_t adr, uint8_t kanal, uint8_t ins, uint8_t val
     cJSON_AddNumberToObject(root, "scene",ins);
     cJSON_AddNumberToObject(root, "val",val);
     cJSON_AddNumberToObject(root, "special",9);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     send_STM(root);
     cJSON_Delete(root);
 
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
-    xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(10000)); 
+    xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(10000));
+    xSemaphoreGive(searchQueueMutex);
     return msg.name[0];
 }
 
@@ -1822,14 +1868,16 @@ void command_query_ins_filter(cJSON *payload, pck_t *pck, bool is_mqtt)
     cJSON_AddNumberToObject(root, "hexcom", cmm);
     cJSON_AddNumberToObject(root, "kanal",kan);
     cJSON_AddNumberToObject(root, "bit",24);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     send_STM(root);
     cJSON_Delete(root);
 
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
-    xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(5000)); 
+    xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(5000));
+    xSemaphoreGive(searchQueueMutex);
 
-    cJSON *pay = cJSON_CreateObject();  
+    cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "qfilter");
     cJSON_AddItemToObject(pay, "adr", cJSON_CreateNumber(adr));
     cJSON_AddItemToObject(pay, "ins", cJSON_CreateNumber(ins));
@@ -1852,14 +1900,16 @@ void command_query_ins_timer(cJSON *payload, pck_t *pck, bool is_mqtt)
     cJSON_AddNumberToObject(root, "kanal",kan);
     cJSON_AddNumberToObject(root, "val",ins);
     cJSON_AddNumberToObject(root, "special",10);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     send_STM(root);
     cJSON_Delete(root);
 
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
-    xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(10000)); 
+    xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(10000));
+    xSemaphoreGive(searchQueueMutex);
 
-    cJSON *pay = cJSON_CreateObject();  
+    cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "qstimer");
     cJSON_AddItemToObject(pay, "adr", cJSON_CreateNumber(adr));
     cJSON_AddItemToObject(pay, "ins", cJSON_CreateNumber(ins));
@@ -1891,14 +1941,16 @@ void command_set_ins_timer(cJSON *payload, pck_t *pck, bool is_mqtt)
     cJSON_AddNumberToObject(root, "par1",shrt);
     cJSON_AddNumberToObject(root, "par2",lng);
     cJSON_AddNumberToObject(root, "par3",stk);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     send_STM(root);
     cJSON_Delete(root);
 
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
-    xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(10000)); 
+    xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(10000));
+    xSemaphoreGive(searchQueueMutex);
 
-    cJSON *pay = cJSON_CreateObject();  
+    cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "sstimer");
     cJSON_AddItemToObject(pay, "adr", cJSON_CreateNumber(adr));
     cJSON_AddItemToObject(pay, "ins", cJSON_CreateNumber(ins));   
@@ -1919,14 +1971,16 @@ void command_get_amode(cJSON *payload, pck_t *pck, bool is_mqtt)
     cJSON_AddNumberToObject(root, "hexcom", cmm);
     cJSON_AddNumberToObject(root, "kanal",kan);
     cJSON_AddNumberToObject(root, "bit",24);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     send_STM(root);
     cJSON_Delete(root);
 
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
-    xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(10000)); 
+    xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(10000));
+    xSemaphoreGive(searchQueueMutex);
 
-    cJSON *pay = cJSON_CreateObject();  
+    cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "get_amode");
     cJSON_AddItemToObject(pay, "adr", cJSON_CreateNumber(adr));
     cJSON_AddItemToObject(pay, "kanal", cJSON_CreateNumber(kan));
@@ -1949,13 +2003,15 @@ void command_set_amode(cJSON *payload, pck_t *pck, bool is_mqtt)
     cJSON_AddNumberToObject(root, "kanal",kan);
     cJSON_AddNumberToObject(root, "special",8);
     cJSON_AddNumberToObject(root, "value",mode);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     send_STM(root);
     cJSON_Delete(root);
 
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
-    xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(10000));  
-    
+    xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(10000));
+    xSemaphoreGive(searchQueueMutex);
+
     cJSON *pay = cJSON_CreateObject();  
     cJSON_AddStringToObject(pay, "com", "get_amode");
     cJSON_AddItemToObject(pay, "adr", cJSON_CreateNumber(adr));
@@ -2020,11 +2076,13 @@ void command_get_temp(cJSON *payload, pck_t *pck, bool is_mqtt=false)
         cJSON_AddNumberToObject(root, "hexcom", cmm);
         cJSON_AddNumberToObject(root, "kanal",kan);
         cJSON_AddNumberToObject(root, "bit",24);
+        xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
         send_STM(root);
         cJSON_Delete(root);
         searchMessage_t msg = {};
         xQueueReset(searchQueue);
-        xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(10000));  
+        xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(10000));
+        xSemaphoreGive(searchQueueMutex);
         ins.temp = msg.name[0];
         temp_role_degerlendir(&ins);
         fill_ins(&ins,pay);

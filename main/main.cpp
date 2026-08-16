@@ -2,6 +2,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "driver/gpio.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
@@ -211,6 +212,12 @@ typedef struct {
 QueueHandle_t searchQueue = xQueueCreate(5, sizeof(searchMessage_t));
 QueueHandle_t wsearchQueue = xQueueCreate(5, sizeof(searchMessage_t));
 
+// searchQueue/wsearchQueue düzinelerce yerden paylaşılıyor; reset->send->receive
+// üçlüsünü bu mutex'lerle seri hale getiriyoruz ki eşzamanlı iki istek birbirinin
+// cevabını çalmasın.
+SemaphoreHandle_t searchQueueMutex = xSemaphoreCreateMutex();
+SemaphoreHandle_t wsearchQueueMutex = xSemaphoreCreateMutex();
+
 static uint8_t willTopic[64];
 static uint8_t inTopic[64];
 static uint8_t outTopic[64];
@@ -339,12 +346,14 @@ static void dali_toggle_query_task(void *pvParameters)
     cJSON_AddNumberToObject(root, "hexcom", create_command(param.adr, param.grp==1, false, QUERY_STATUS));
     cJSON_AddNumberToObject(root, "kanal", param.kanal);
     cJSON_AddNumberToObject(root, "bit", 16);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
     send_STM(root);
     cJSON_Delete(root);
 
     searchMessage_t msg = {};
     xQueueReset(searchQueue);
     xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(3000));
+    xSemaphoreGive(searchQueueMutex);
 
     bool isOn = ((msg.name[0] & 0x04) == 0x04);
     lamp_action(param.adr, param.grp, isOn ? 0x00 : 0x05, param.kanal, param.say);
@@ -614,6 +623,9 @@ void process_and_control_task(void *pvParameters)
        bool don = true;
        uint8_t count=0, stat=1;
 
+       // Emir+doğrulama döngüsünün tamamı boyunca (birkaç send/receive turu)
+       // searchQueue'yu tek başımıza kullanıyoruz.
+       xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
        do {
             count++;
             if (cpins.status==1) {
@@ -644,6 +656,7 @@ void process_and_control_task(void *pvParameters)
             if (cpins.status==1) {if ((msg.name[0]&0x04)==0x04) don=false;}
             if (cpins.status==0) {if ((msg.name[0]&0x04)!=0x04) don=false;}
        } while (don);
+       xSemaphoreGive(searchQueueMutex);
 
        if (stat==0) {
           cpins.status=0;
@@ -1146,13 +1159,15 @@ void term_tara_task(void *pvParameters)
                 uint32_t cmm = (((ff.dev_addr<<1)|1) << 16)| (ff.ins_addr<<8) | (0xBC) ; 
                 char *mm;
                 asprintf(&mm,"%06lX:18:01:%02X#",cmm,ff.channel);
+                xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
                 myUart->send(mm);
                 free(mm);
 
                 searchMessage_t msg = {};
                 xQueueReset(searchQueue);
                 xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(5000));
-                ff.temp = msg.name[0]; 
+                xSemaphoreGive(searchQueueMutex);
+                ff.temp = msg.name[0];
 
                 xTaskCreatePinnedToCore(
                         process_and_control_task,           // Task fonksiyonunun adı

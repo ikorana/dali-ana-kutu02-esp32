@@ -104,6 +104,7 @@ static void anahtar_onaction(uint8_t cmd, uint8_t level, gear_t *gg)
         cJSON_AddNumberToObject(root0, "hexcom", create_command(adr, false, false, QUERY_ACTUAL_LEVEL));
         cJSON_AddNumberToObject(root, "kanal", gg->kanal);
         cJSON_AddNumberToObject(root0, "bit", 16);
+        xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
         if (gg->kanal > 0) send_STM(root0);
         if (gg->kanal == 0) send_wifi(root0);
         cJSON_Delete(root0);
@@ -111,7 +112,9 @@ static void anahtar_onaction(uint8_t cmd, uint8_t level, gear_t *gg)
         searchMessage_t msg = {};
         xQueueReset(searchQueue);
         // Cevap için 3 saniye bekle
-        if (xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(3000)) == pdPASS) {
+        BaseType_t got = xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(3000));
+        xSemaphoreGive(searchQueueMutex);
+        if (got == pdPASS) {
             ret = msg.name[0];
             if (cmd0 == 0xFF && ret > 0) {
                 ESP_LOGI("AN_ACTION", "Basarili: Cihaz ACILDI (Adr:%d, Ret:%d)", adr, ret);

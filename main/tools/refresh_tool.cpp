@@ -30,11 +30,14 @@ uint8_t sendStatus(uint8_t adr, uint8_t kanal, pck_t *pck, bool is_mqtt) {
     cJSON_AddNumberToObject(root, "kanal",kanal);
     cJSON_AddNumberToObject(root, "bit",16);
     cJSON_AddNumberToObject(root, "special",14);
+    xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
+    xQueueReset(searchQueue);
     send_STM(root);
     cJSON_Delete(root);
 
     searchMessage_t msg = {};
     xQueueReceive(searchQueue, &msg, pdMS_TO_TICKS(20000));
+    xSemaphoreGive(searchQueueMutex);
     cJSON *pay = cJSON_CreateObject();
     cJSON_AddStringToObject(pay, "com", "status");
     cJSON_AddNumberToObject(pay, "adres", adr);
