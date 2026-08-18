@@ -139,6 +139,7 @@ void com_process_task(void *pvParameters) {
     if (strcmp(command,"set_pwr")==0) command_set_level(param->payload,&param->pck,SET_POWERON_LEVEL,"set_pwr",param->is_mqtt);
     if (strcmp(command,"set_fade")==0) command_set_fade(param->payload,&param->pck, param->is_mqtt);
     if (strcmp(command,"set_efade")==0) command_set_efade(param->payload,&param->pck, param->is_mqtt);
+    if (strcmp(command,"set_lamp_override")==0) command_set_lamp_override(param->payload,&param->pck, param->is_mqtt);
 
     if (strcmp(command,"get_min")==0) command_get_single(param->payload,&param->pck,QUERY_MIN_LEVEL,"get_min",param->is_mqtt);
     if (strcmp(command,"get_max")==0) command_get_single(param->payload,&param->pck,QUERY_MAX_LEVEL,"get_max",param->is_mqtt);
@@ -395,6 +396,11 @@ void udp_worker_task(void *pvParameters) {
             /**/    if (strcmp(command,"dali")==0) channel_onoff(payload_item,n_pck, msg->is_mqtt);
             /**/    if (strcmp(command,"led")==0) led_onoff(payload_item,n_pck, msg->is_mqtt);
 
+                // ROLE1 (RS485) konfigürasyon komutları: içeriğe bakmadan STM32'ye
+                // ilet, STM32 aynı önekle bunu RS485'e taşır. Yeni bir rl1_ komutu
+                // ne burada ne STM32'de değişiklik gerektirir.
+                if (strncmp(command,"rl1_",4)==0) send_STM(payload_item);
+
 
                 
                 /* Bu komutlar ESP32 ile ilgilidir*/
@@ -445,6 +451,7 @@ void udp_worker_task(void *pvParameters) {
                 if (strcmp(command,"set_scn_time")==0) command_set_scene_time(payload_item,n_pck, msg->is_mqtt);
                 if (strcmp(command,"get_scn_time")==0) command_get_scene_time(payload_item,n_pck, msg->is_mqtt);
                 if (strcmp(command,"save_dev")==0) command_save_dev(payload_item,n_pck, msg->is_mqtt);
+                if (strcmp(command,"set_lamp_override")==0) command_set_lamp_override(payload_item,n_pck, msg->is_mqtt);
                 
 
                 /* Bu komutlar STM32 ile ilgilidir*/

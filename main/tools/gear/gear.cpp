@@ -46,6 +46,15 @@ void Gear::get_gurup(uint8_t adr, uint8_t *glow, uint8_t *ghigh)
    *ghigh = kk.spec.group[1];
 }
 
+void Gear::set_lamp_override(uint8_t adr, uint8_t val)
+{
+   gear_t kk={};
+   disk->read_file(file_name,&kk,sizeof(gear_t),adr);
+   kk.spec.reserved[0] = val;
+   disk->write_file(file_name,&kk,sizeof(gear_t),adr);
+   refresh_names(); // room_entries önbelleğindeki lamp_override anında güncellensin
+}
+
 bool Gear::refresh_names(void)
 {
     // Önceki taramadan kalan heap string'lerini serbest bırakmadan clear() yaparsak sızıntı olur.
@@ -71,6 +80,7 @@ bool Gear::refresh_names(void)
             re.room = ff.room;
             re.ext_type = ff.ext_type;
             re.short_addr = ff.short_addr;
+            re.lamp_override = ff.spec.reserved[0];
             room_entries.push_back(re);
         }
     }

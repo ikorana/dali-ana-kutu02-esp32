@@ -267,6 +267,21 @@ void search_device(void *pvParameters) {
     // başımıza kullanıyoruz; başka bir sorgu bu sırada devreye giremesin.
     xSemaphoreTake(searchQueueMutex, portMAX_DELAY);
 
+    // STM32'ye komutu göndermeden ÖNCE eski bit/kuyruk durumunu temizle.
+    // Aksi halde STM32'nin "search"/"start" cevabı UART kesmesiyle çok hızlı
+    // gelip send_STM'den hemen sonraki temizlemeyi yarışıp silebiliyor —
+    // yeni aramanın START sinyali kayboluyor ve önceki aramadan kalan
+    // kuyruk öğesi bir sonraki aramayı karıştırıyordu.
+    xEventGroupClearBits(searchGROUP, BIT_START | BIT_STOP | BIT_CONTINUE);
+    xQueueReset(searchQueue);
+
+    // DALI_channel_search STM32'de uzun süre bloklayan bir döngü — bu sırada
+    // STM32 ping/pong GPIO kontrolünü servis edemeyebilir. led_task bunu
+    // "STM32 kilitlendi" sanıp STM32'yi taramanın ortasında resetliyordu.
+    // Arama boyunca bu bekçiyi geçici olarak (diske yazmadan) kapatıyoruz.
+    uint8_t ping_active_saved = GlobalConfig.ping_active;
+    GlobalConfig.ping_active = 0;
+
     if (cable!=0) {
         cJSON *root = cJSON_CreateObject();
         cJSON_AddStringToObject(root,"com","search");
@@ -274,8 +289,6 @@ void search_device(void *pvParameters) {
         send_STM(root);
         cJSON_Delete(root);
     }
-
-    xEventGroupClearBits(searchGROUP, BIT_START | BIT_STOP | BIT_CONTINUE);
 
     if (cable==0) {
         //Kablosuz ARAMA
@@ -319,6 +332,7 @@ void search_device(void *pvParameters) {
                 cJSON_AddStringToObject(pay, "txt", txt);
                 send_AK(pay,&param->pck);
                 free(txt);
+                GlobalConfig.ping_active = ping_active_saved;
                 xSemaphoreGive(searchQueueMutex);
                 don=false;
                 break;  // Döngüden çık ve task'ı bitir veya bekleme modunu kapat
@@ -1599,6 +1613,31 @@ void send_version(pck_t *pck)
             cJSON_AddNumberToObject(pay, "sulama", GlobalConfig.sulama);   
             cJSON_AddNumberToObject(pay, "aydinlatma", GlobalConfig.aydinlatma);     
             send_AK(pay,pck);
+}
+
+// Telefon05: kullanıcı bir Role (ext_type==0x07) cihazın ikonunu ampul/aydınlatma
+// temalı bir ikonla değiştirdiğinde gönderilir. İkonun kendisi kutuya gönderilmez
+// (o telefonun kendi lokal tercihi) — sadece bu cihazın "tüm lambaları aç" gibi
+// kategori fan-out'una dahil olup olmayacağı bilgisi (bkz. apply_category_fanout,
+// gear.h dev_spec_t.reserved[0]) kutuya bildirilir.
+void command_set_lamp_override(cJSON *payload, pck_t *pck, bool is_mqtt=false)
+{
+    uint8_t adr = 0, kanal = 255, val = 0;
+    JSON_getint(payload,"id", &adr);
+    JSON_getint(payload,"kanal", &kanal);
+    JSON_getint(payload,"val", &val);
+
+    if (kanal==1) gear01.set_lamp_override(adr,val);
+    if (kanal==2) gear02.set_lamp_override(adr,val);
+    if (kanal==3) gear03.set_lamp_override(adr,val);
+    if (kanal==0) gear04.set_lamp_override(adr,val);
+
+    cJSON *pay = cJSON_CreateObject();
+    cJSON_AddStringToObject(pay, "com", "set_lamp_override");
+    cJSON_AddNumberToObject(pay,"id",adr);
+    cJSON_AddNumberToObject(pay,"kanal",kanal);
+    cJSON_AddNumberToObject(pay,"val",val);
+    send_AK(pay,pck,is_mqtt);
 }
 
 void command_save_dev(cJSON *payload, pck_t *pck, bool is_mqtt)

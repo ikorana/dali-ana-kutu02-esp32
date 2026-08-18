@@ -867,6 +867,12 @@ void uartCallback(const uint8_t *data, size_t len)
             //mqtt_send((char*)buf);
         }
 
+        // ROLE1 (RS485) konfigürasyon cevapları: içeriğe bakmadan configurator/
+        // uygulamaya ilet. STM32 tarafı bunu RS485'ten aynı önekle geçiriyor.
+        if (strncmp(command,"rl1_",4)==0) {
+            udp_server.send_unicast_all((uint8_t *)buf,strlen((char*)buf));
+        }
+
         if (strcmp(command,"hat_error")==0) {
             // STM32'den gelen DALI hat arızası (kısa devre/kopukluk) bildirimi.
             // Yaşamsal alarm değil, donanım arıza telemetrisi: ham mesajı olduğu gibi

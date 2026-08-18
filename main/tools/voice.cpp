@@ -231,6 +231,12 @@ uint8_t find_devicename(std::vector<find_param_t> lst, char *txt) {
             to_lowercase(en0);
             printf("%s - %s - %s\n",txt, par.name, en0);
 
+            // Boş isimli (henüz adlandırılmamış) kayıtları hiç eşleştirmeye
+            // çalışma: strnstr boş bir alt-diziyi HER metnin başında "bulur",
+            // bu da isimsiz her grup/senaryo/cihaz kaydının rastgele her sesli
+            // komutla "eşleşmesine" yol açıyordu.
+            if (en0[0] == '\0') { free(en0); continue; }
+
             char *eslesme = strnstr(txt,en0,100);
             if (eslesme != NULL) {
                 // Eşleşme bir kelime ORTASINDAN başlamamalı (örn. "tum lambalari"
@@ -305,7 +311,11 @@ static int apply_category_fanout(uint8_t ext_type_beklenen, uint8_t oda_index,
     for (uint8_t k=0; k<4; k++) {
         std::vector<gear_room_entry_t> kayitlar = dali_kanallari[k]->get_room_entries();
         for (gear_room_entry_t &re : kayitlar) {
-            if ((oda_index==255 || re.room==oda_index) && re.ext_type==ext_type_dali_beklenen) {
+            // Role tipi (0x07) bir cihaz, kullanıcı ikonunu lamba yaptıysa (lamp_override)
+            // LAMBA kategori fan-out'una da dahil olsun — bkz. gear.h dev_spec_t.reserved[0].
+            bool ext_eslesiyor = (re.ext_type==ext_type_dali_beklenen) ||
+                (ext_type_dali_beklenen==0x06 && re.ext_type==0x07 && re.lamp_override==1);
+            if ((oda_index==255 || re.room==oda_index) && ext_eslesiyor) {
                 cJSON *pl = cJSON_CreateObject();
                 cJSON_AddNumberToObject(pl, "adres", re.short_addr);
                 cJSON_AddNumberToObject(pl, "gurup", 0);

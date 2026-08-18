@@ -30,7 +30,11 @@ bool Gurup::refresh_names(void)
 
     for (int i=0;i<MAX_GURUP;i++) {
         gurup_t ff={};
-        disk->read_file(file_name,&ff,sizeof(gurup_t),i);
+        // read_file başarısız olursa (bu slot dosyada hiç yazılmamışsa) ff
+        // sıfırlanmış haliyle kalıyor: id=0 (0xFF değil!), name="" — bu
+        // "geçerli ama isimsiz kayıt" sanılıp isimsiz bir grup listeye
+        // eklenmesin diye okuma başarısızsa slot'u tamamen atlıyoruz.
+        if (!disk->read_file(file_name,&ff,sizeof(gurup_t),i)) continue;
         if (ff.id!=0xFF) {
             find_param_t aa = {};
             char *nm;
